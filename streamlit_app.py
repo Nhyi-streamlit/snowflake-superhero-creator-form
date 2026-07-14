@@ -338,7 +338,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     # ── Section 4: Talk & Support Request ────────────────────────────────────
     st.markdown('<span class="step-label">Section 4 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Talk & Support Request</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us what you\'ll be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Tell us what you may be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
 
     talk_title = st.text_input(
         "Talk / session title",
