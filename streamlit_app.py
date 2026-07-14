@@ -275,7 +275,7 @@ SNOWFLAKE_TOPICS = [
 with st.form("conference_support_form", clear_on_submit=False):
 
     # ── Section 1: About You ──────────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 1 of 6</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 1 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Basic contact info so we can follow up with you.</p>', unsafe_allow_html=True)
 
@@ -296,7 +296,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.divider()
 
     # ── Section 2: Community Identity ────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 2 of 6</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 2 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Community Identity</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
 
@@ -331,56 +331,8 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     st.divider()
 
-    # ── Section 3: Audience Reach ─────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 3 of 6</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Audience Reach</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Approximate numbers are fine — this helps us understand your community footprint.</p>', unsafe_allow_html=True)
-
-    ar1, ar2, ar3 = st.columns(3)
-    with ar1:
-        linkedin_followers = st.number_input("LinkedIn followers", min_value=0, step=100, value=0)
-        youtube_subscribers = st.number_input("YouTube subscribers", min_value=0, step=100, value=0)
-    with ar2:
-        twitter_followers = st.number_input("Twitter / X followers", min_value=0, step=100, value=0)
-        newsletter_subscribers = st.number_input("Newsletter subscribers", min_value=0, step=100, value=0)
-    with ar3:
-        github_stars = st.number_input("Total GitHub stars (across repos)", min_value=0, step=10, value=0)
-        st.markdown("")
-
-    other_reach_notes = st.text_input(
-        "Other channels / reach notes",
-        placeholder="e.g. 5k Discord members, Podcast with 2k monthly listeners",
-    )
-
-    st.divider()
-
-    # ── Section 4: Past Snowflake Involvement ─────────────────────────────────
-    st.markdown('<span class="step-label">Section 4 of 6</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Past Snowflake Involvement</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Share what you\'ve built, written, or presented on Snowflake topics.</p>', unsafe_allow_html=True)
-
-    pi1, _ = st.columns(2)
-    with pi1:
-        past_talks_count = st.selectbox(
-            "Snowflake-related talks / sessions given (lifetime)",
-            ["0", "1–2", "3–5", "6–10", "10+"],
-        )
-
-    past_content_summary = st.text_area(
-        "Notable content, blog posts, or videos you've created about Snowflake",
-        placeholder="e.g. 'Built a 3-part YouTube series on Streamlit in Snowflake (15k views total)', or links to blog posts...",
-        height=110,
-    )
-    notable_projects = st.text_area(
-        "Notable open-source projects or community contributions related to Snowflake",
-        placeholder="GitHub repos, Streamlit apps, community tools, etc. — include links if you have them.",
-        height=90,
-    )
-
-    st.divider()
-
-    # ── Section 5: The Conference ──────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 5 of 6</span>', unsafe_allow_html=True)
+    # ── Section 3: The Conference ──────────────────────────────────────────────
+    st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">The Conference</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us about the event you\'re attending or planning to attend.</p>', unsafe_allow_html=True)
 
@@ -403,8 +355,8 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     st.divider()
 
-    # ── Section 6: Talk & Support Request ────────────────────────────────────
-    st.markdown('<span class="step-label">Section 6 of 6</span>', unsafe_allow_html=True)
+    # ── Section 4: Talk & Support Request ────────────────────────────────────
+    st.markdown('<span class="step-label">Section 4 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Talk & Support Request</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us what you\'ll be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
 
@@ -514,15 +466,6 @@ with st.form("conference_support_form", clear_on_submit=False):
                 "streamlit_creator_profile_url": streamlit_creator_profile_url.strip(),
                 "snowflake_community_username": snowflake_community_username.strip(),
                 "years_snowflake": years_snowflake,
-                "linkedin_followers": int(linkedin_followers),
-                "twitter_followers": int(twitter_followers),
-                "youtube_subscribers": int(youtube_subscribers),
-                "newsletter_subscribers": int(newsletter_subscribers),
-                "github_stars": int(github_stars),
-                "other_reach_notes": other_reach_notes.strip(),
-                "past_talks_count": past_talks_count,
-                "past_content_summary": past_content_summary.strip(),
-                "notable_projects": notable_projects.strip(),
                 "conference_name": conference_name.strip(),
                 "conference_website": conference_website.strip(),
                 "conference_type": conference_type if conference_type != "— select —" else "",
