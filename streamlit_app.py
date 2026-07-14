@@ -79,43 +79,54 @@ def _get_sf_cursor():
     """Return (cursor, connection) using st.secrets or env vars."""
     import snowflake.connector
 
-    # Read secrets from Streamlit secrets manager or fall back to env vars
+    # Read credentials — prefer st.secrets, fall back to env vars
+    account = user = password = host = ""
+    warehouse = "MARKETING_ADHOC"
+    role = "MARKETING_SENSITIVE_RO"
     try:
         sf_cfg = st.secrets["connections"]["snowflake"]
-        account = sf_cfg.get("account", "")
-        user = sf_cfg.get("user", "")
-        password = sf_cfg.get("password", "")
-        warehouse = sf_cfg.get("warehouse", "MARKETING_ADHOC")
-        role = sf_cfg.get("role", "MARKETING_SENSITIVE_RO")
+        account   = sf_cfg.get("account", "")
+        host      = sf_cfg.get("host", "")
+        user      = sf_cfg.get("user", "")
+        password  = sf_cfg.get("password", "")
+        warehouse = sf_cfg.get("warehouse", warehouse)
+        role      = sf_cfg.get("role", role)
     except Exception:
-        account = os.environ.get("SNOWFLAKE_ACCOUNT", "")
-        user = os.environ.get("SNOWFLAKE_USER", "")
-        password = os.environ.get("SNOWFLAKE_PASSWORD", "")
-        warehouse = os.environ.get("SNOWFLAKE_WAREHOUSE", "MARKETING_ADHOC")
-        role = os.environ.get("SNOWFLAKE_ROLE", "MARKETING_SENSITIVE_RO")
+        account   = os.environ.get("SNOWFLAKE_ACCOUNT", "")
+        host      = os.environ.get("SNOWFLAKE_HOST", "")
+        user      = os.environ.get("SNOWFLAKE_USER", "")
+        password  = os.environ.get("SNOWFLAKE_PASSWORD", "")
+        warehouse = os.environ.get("SNOWFLAKE_WAREHOUSE", warehouse)
+        role      = os.environ.get("SNOWFLAKE_ROLE", role)
 
     if not (account and user and password):
         st.error("Snowflake credentials not found in secrets.")
         return None, None
 
-    # Strip cloud/region suffixes that are NOT part of the account identifier
-    # (e.g. SFCOGSOPS-SNOWHOUSE_AWS_US_WEST_2 → sfcogsops-snowhouse)
-    for suffix in ("_AWS_US_WEST_2", "_AWS_US_EAST_1", "_AWS_EU_WEST_1",
-                   "_AZURE_EASTUS2", "_AZURE_WESTUS2", "_GCP_US_CENTRAL1"):
-        if account.upper().endswith(suffix):
-            account = account[: len(account) - len(suffix)]
-            break
+    # Build connect kwargs — prefer explicit host when provided
+    connect_kwargs = dict(
+        user=user,
+        password=password,
+        warehouse=warehouse,
+        database="MARKETING",
+        schema="PLAYGROUND",
+        role=role,
+        login_timeout=60,
+    )
+    if host:
+        connect_kwargs["host"] = host
+        connect_kwargs["account"] = account  # still required even with host
+    else:
+        # Strip cloud/region suffix that is NOT part of the account identifier
+        for suffix in ("_AWS_US_WEST_2", "_AWS_US_EAST_1", "_AWS_EU_WEST_1",
+                       "_AZURE_EASTUS2", "_AZURE_WESTUS2", "_GCP_US_CENTRAL1"):
+            if account.upper().endswith(suffix):
+                account = account[: len(account) - len(suffix)]
+                break
+        connect_kwargs["account"] = account
 
     try:
-        sf = snowflake.connector.connect(
-            account=account,
-            user=user,
-            password=password,
-            warehouse=warehouse,
-            database="MARKETING",
-            schema="PLAYGROUND",
-            role=role,
-        )
+        sf = snowflake.connector.connect(**connect_kwargs)
         return sf.cursor(), sf
     except Exception as e:
         st.error(f"Snowflake connection failed: {e}")
