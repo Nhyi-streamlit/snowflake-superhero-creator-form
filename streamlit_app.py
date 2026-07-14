@@ -75,61 +75,78 @@ st.markdown("""
 # ── Snowflake writer ──────────────────────────────────────────────────────────
 
 def save_submission(data: dict) -> bool:
-    """Submit form data to Formspree. Set FORMSPREE_FORM_ID in Streamlit secrets."""
+    """Create a GitHub Issue in the private submissions repo for each submission."""
     import requests
 
-    form_id = ""
+    gh_token = ""
     try:
-        form_id = st.secrets.get("FORMSPREE_FORM_ID", "")
+        gh_token = st.secrets.get("GITHUB_SUBMISSIONS_TOKEN", "")
     except Exception:
-        form_id = os.environ.get("FORMSPREE_FORM_ID", "")
+        gh_token = os.environ.get("GITHUB_SUBMISSIONS_TOKEN", "")
 
-    if not form_id:
-        st.error("Form backend not configured (FORMSPREE_FORM_ID missing from secrets).")
+    if not gh_token:
+        st.error("Submission backend not configured (GITHUB_SUBMISSIONS_TOKEN missing).")
         return False
 
-    payload = {
-        "_replyto":      data["email"],
-        "Submission ID": data["submission_id"],
-        "Submitted At":  data["submitted_at"],
-        "First Name":    data["first_name"],
-        "Last Name":     data["last_name"],
-        "Email":         data["email"],
-        "Job Title":     data.get("job_title", ""),
-        "Company":       data.get("company", ""),
-        "Country":       data.get("country", ""),
-        "LinkedIn URL":  data.get("linkedin_url", ""),
-        "Community":     data.get("community_identity", ""),
-        "Years with Snowflake": data.get("years_snowflake", ""),
-        "Conference":    data["conference_name"],
-        "Conf Website":  data.get("conference_website", ""),
-        "Conf Type":     data.get("conference_type", ""),
-        "Conf Start":    str(data.get("conference_start", "")),
-        "Conf End":      str(data.get("conference_end", "")),
-        "Conf City":     data.get("conference_city", ""),
-        "Conf Country":  data.get("conference_country", ""),
-        "Conf Format":   data.get("conference_format", ""),
-        "Talk Title":    data.get("talk_title", ""),
-        "Session Type":  data.get("session_type", ""),
-        "Acceptance":    data.get("acceptance_status", ""),
-        "SF Topics":     ", ".join(data.get("snowflake_topics", [])),
-        "Abstract":      data.get("talk_abstract", ""),
-        "Support Types": ", ".join(data.get("support_types", [])),
-        "Est. Cost USD": data.get("estimated_cost", 0),
-        "Traveling From": data.get("traveling_from", ""),
-        "Notes":         data.get("additional_notes", ""),
-    }
+    title = (
+        f"[Form] {data['first_name']} {data['last_name']} "
+        f"— {data.get('conference_name', 'Conference TBD')}"
+    )
+
+    lines = [
+        f"**Submission ID:** {data['submission_id']}",
+        f"**Submitted At:** {data['submitted_at']}",
+        "",
+        "## Contact",
+        f"- **Name:** {data['first_name']} {data['last_name']}",
+        f"- **Email:** {data['email']}",
+        f"- **Job Title:** {data.get('job_title', '')}",
+        f"- **Company:** {data.get('company', '')}",
+        f"- **Country:** {data.get('country', '')}",
+        f"- **LinkedIn:** {data.get('linkedin_url', '')}",
+        "",
+        "## Community Identity",
+        f"- **Identity:** {data.get('community_identity', '')}",
+        f"- **Years with Snowflake:** {data.get('years_snowflake', '')}",
+        "",
+        "## Conference",
+        f"- **Conference:** {data.get('conference_name', '')}",
+        f"- **Website:** {data.get('conference_website', '')}",
+        f"- **Type:** {data.get('conference_type', '')}",
+        f"- **Dates:** {data.get('conference_start', '')} → {data.get('conference_end', '')}",
+        f"- **Location:** {data.get('conference_city', '')}, {data.get('conference_country', '')}",
+        f"- **Format:** {data.get('conference_format', '')}",
+        "",
+        "## Talk & Support",
+        f"- **Talk Title:** {data.get('talk_title', '')}",
+        f"- **Session Type:** {data.get('session_type', '')}",
+        f"- **Acceptance:** {data.get('acceptance_status', '')}",
+        f"- **SF Topics:** {', '.join(data.get('snowflake_topics', []))}",
+        f"- **Support Requested:** {', '.join(data.get('support_types', []))}",
+        f"- **Est. Travel Cost (USD):** {data.get('estimated_cost', 0)}",
+        f"- **Traveling From:** {data.get('traveling_from', '')}",
+        "",
+        "## Abstract",
+        data.get("talk_abstract", ""),
+        "",
+        "## Additional Notes",
+        data.get("additional_notes", ""),
+    ]
+    body = "\n".join(lines)
 
     try:
         resp = requests.post(
-            f"https://formspree.io/f/{form_id}",
-            json=payload,
-            headers={"Accept": "application/json"},
+            "https://api.github.com/repos/Nhyi-streamlit/devrel-conference-submissions/issues",
+            json={"title": title, "body": body, "labels": ["submission"]},
+            headers={
+                "Authorization": f"token {gh_token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
             timeout=15,
         )
-        if resp.status_code in (200, 201):
+        if resp.status_code == 201:
             return True
-        st.error(f"Submission failed ({resp.status_code}): {resp.text[:300]}")
+        st.error(f"Submission failed ({resp.status_code}): {resp.json().get('message', resp.text[:200])}")
         return False
     except Exception as e:
         st.error(f"Submission error: {e}")
