@@ -314,7 +314,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     # ── Section 3: The Conference ──────────────────────────────────────────────
     st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">The Conference</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us about the event you\'re attending or planning to attend.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Tell us about the event you\'re planning to speak at.</p>', unsafe_allow_html=True)
 
     conference_name = st.text_input("Conference name *", placeholder="PyCon US 2025")
     cf1, cf2 = st.columns(2)
