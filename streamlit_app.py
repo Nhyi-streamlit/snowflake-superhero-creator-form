@@ -1,4 +1,3 @@
-import json
 import os
 import uuid
 from datetime import datetime
@@ -75,164 +74,66 @@ st.markdown("""
 
 # ── Snowflake writer ──────────────────────────────────────────────────────────
 
-def _get_sf_cursor():
-    """Return (cursor, connection) using st.secrets or env vars."""
-    import snowflake.connector
-
-    # Read credentials — prefer st.secrets, fall back to env vars
-    account = user = password = host = ""
-    warehouse = "MARKETING_ADHOC"
-    role = "MARKETING_SENSITIVE_RO"
-    try:
-        sf_cfg = st.secrets["connections"]["snowflake"]
-        account   = sf_cfg.get("account", "")
-        host      = sf_cfg.get("host", "")
-        user      = sf_cfg.get("user", "")
-        password  = sf_cfg.get("password", "")
-        warehouse = sf_cfg.get("warehouse", warehouse)
-        role      = sf_cfg.get("role", role)
-    except Exception:
-        account   = os.environ.get("SNOWFLAKE_ACCOUNT", "")
-        host      = os.environ.get("SNOWFLAKE_HOST", "")
-        user      = os.environ.get("SNOWFLAKE_USER", "")
-        password  = os.environ.get("SNOWFLAKE_PASSWORD", "")
-        warehouse = os.environ.get("SNOWFLAKE_WAREHOUSE", warehouse)
-        role      = os.environ.get("SNOWFLAKE_ROLE", role)
-
-    if not (account and user and password):
-        st.error("Snowflake credentials not found in secrets.")
-        return None, None
-
-    # Build connect kwargs — prefer explicit host when provided
-    connect_kwargs = dict(
-        user=user,
-        password=password,
-        warehouse=warehouse,
-        database="MARKETING",
-        schema="PLAYGROUND",
-        role=role,
-        login_timeout=60,
-    )
-    if host:
-        connect_kwargs["host"] = host
-        connect_kwargs["account"] = account  # still required even with host
-    else:
-        # Strip cloud/region suffix that is NOT part of the account identifier
-        for suffix in ("_AWS_US_WEST_2", "_AWS_US_EAST_1", "_AWS_EU_WEST_1",
-                       "_AZURE_EASTUS2", "_AZURE_WESTUS2", "_GCP_US_CENTRAL1"):
-            if account.upper().endswith(suffix):
-                account = account[: len(account) - len(suffix)]
-                break
-        connect_kwargs["account"] = account
-
-    try:
-        sf = snowflake.connector.connect(**connect_kwargs)
-        return sf.cursor(), sf
-    except Exception as e:
-        st.error(f"Snowflake connection failed: {e}")
-        return None, None
-
-
 def save_submission(data: dict) -> bool:
-    cursor, sf = _get_sf_cursor()
-    if cursor is None:
+    """Submit form data to Formspree. Set FORMSPREE_FORM_ID in Streamlit secrets."""
+    import requests
+
+    form_id = ""
+    try:
+        form_id = st.secrets.get("FORMSPREE_FORM_ID", "")
+    except Exception:
+        form_id = os.environ.get("FORMSPREE_FORM_ID", "")
+
+    if not form_id:
+        st.error("Form backend not configured (FORMSPREE_FORM_ID missing from secrets).")
         return False
 
-    SQL = """
-        INSERT INTO MARKETING.PLAYGROUND.SUPERHERO_CREATOR_CONF_SUBMISSIONS (
-            SUBMISSION_ID, SUBMITTED_AT,
-            FIRST_NAME, LAST_NAME, EMAIL, JOB_TITLE, COMPANY, COUNTRY,
-            LINKEDIN_URL, GITHUB_USERNAME, TWITTER_HANDLE, WEBSITE_URL,
-            COMMUNITY_IDENTITY, SUPERHERO_PROFILE_URL, STREAMLIT_CREATOR_PROFILE_URL,
-            SNOWFLAKE_COMMUNITY_USERNAME, YEARS_SNOWFLAKE,
-            LINKEDIN_FOLLOWERS, TWITTER_FOLLOWERS, YOUTUBE_SUBSCRIBERS,
-            NEWSLETTER_SUBSCRIBERS, GITHUB_STARS, OTHER_REACH_NOTES,
-            PAST_TALKS_COUNT, PAST_CONTENT_SUMMARY, NOTABLE_PROJECTS,
-            CONFERENCE_NAME, CONFERENCE_WEBSITE, CONFERENCE_TYPE,
-            CONFERENCE_START_DATE, CONFERENCE_END_DATE,
-            CONFERENCE_CITY, CONFERENCE_COUNTRY, CONFERENCE_FORMAT,
-            TALK_TITLE, SESSION_TYPE, TALK_ABSTRACT, SNOWFLAKE_TOPICS,
-            ACCEPTANCE_STATUS, SUPPORT_TYPES, ESTIMATED_COST_USD,
-            TRAVELING_FROM, ADDITIONAL_NOTES
-        ) VALUES (
-            %(sub_id)s, %(submitted_at)s,
-            %(first_name)s, %(last_name)s, %(email)s, %(job_title)s, %(company)s, %(country)s,
-            %(linkedin_url)s, %(github_username)s, %(twitter_handle)s, %(website_url)s,
-            %(community_identity)s, %(superhero_url)s, %(streamlit_url)s,
-            %(sf_community_username)s, %(years_snowflake)s,
-            %(linkedin_followers)s, %(twitter_followers)s, %(youtube_subscribers)s,
-            %(newsletter_subscribers)s, %(github_stars)s, %(other_reach_notes)s,
-            %(past_talks_count)s, %(past_content_summary)s, %(notable_projects)s,
-            %(conference_name)s, %(conference_website)s, %(conference_type)s,
-            %(conference_start)s, %(conference_end)s,
-            %(conference_city)s, %(conference_country)s, %(conference_format)s,
-            %(talk_title)s, %(session_type)s, %(talk_abstract)s, PARSE_JSON(%(snowflake_topics)s),
-            %(acceptance_status)s, PARSE_JSON(%(support_types)s), %(estimated_cost)s,
-            %(traveling_from)s, %(additional_notes)s
-        )
-    """
-
-    params = {
-        "sub_id": data["submission_id"],
-        "submitted_at": data["submitted_at"],
-        "first_name": data["first_name"],
-        "last_name": data["last_name"],
-        "email": data["email"],
-        "job_title": data.get("job_title", ""),
-        "company": data.get("company", ""),
-        "country": data.get("country", ""),
-        "linkedin_url": data.get("linkedin_url", ""),
-        "github_username": data.get("github_username", ""),
-        "twitter_handle": data.get("twitter_handle", ""),
-        "website_url": data.get("website_url", ""),
-        "community_identity": data.get("community_identity", ""),
-        "superhero_url": data.get("superhero_profile_url", ""),
-        "streamlit_url": data.get("streamlit_creator_profile_url", ""),
-        "sf_community_username": data.get("snowflake_community_username", ""),
-        "years_snowflake": data.get("years_snowflake", ""),
-        "linkedin_followers": data.get("linkedin_followers", 0),
-        "twitter_followers": data.get("twitter_followers", 0),
-        "youtube_subscribers": data.get("youtube_subscribers", 0),
-        "newsletter_subscribers": data.get("newsletter_subscribers", 0),
-        "github_stars": data.get("github_stars", 0),
-        "other_reach_notes": data.get("other_reach_notes", ""),
-        "past_talks_count": data.get("past_talks_count", "0"),
-        "past_content_summary": data.get("past_content_summary", ""),
-        "notable_projects": data.get("notable_projects", ""),
-        "conference_name": data["conference_name"],
-        "conference_website": data.get("conference_website", ""),
-        "conference_type": data.get("conference_type", ""),
-        "conference_start": str(data.get("conference_start", "")),
-        "conference_end": str(data.get("conference_end", "")),
-        "conference_city": data.get("conference_city", ""),
-        "conference_country": data.get("conference_country", ""),
-        "conference_format": data.get("conference_format", ""),
-        "talk_title": data.get("talk_title", ""),
-        "session_type": data.get("session_type", ""),
-        "talk_abstract": data.get("talk_abstract", ""),
-        "snowflake_topics": json.dumps(data.get("snowflake_topics", [])),
-        "acceptance_status": data.get("acceptance_status", ""),
-        "support_types": json.dumps(data.get("support_types", [])),
-        "estimated_cost": float(data.get("estimated_cost", 0) or 0),
-        "traveling_from": data.get("traveling_from", ""),
-        "additional_notes": data.get("additional_notes", ""),
+    payload = {
+        "_replyto":      data["email"],
+        "Submission ID": data["submission_id"],
+        "Submitted At":  data["submitted_at"],
+        "First Name":    data["first_name"],
+        "Last Name":     data["last_name"],
+        "Email":         data["email"],
+        "Job Title":     data.get("job_title", ""),
+        "Company":       data.get("company", ""),
+        "Country":       data.get("country", ""),
+        "LinkedIn URL":  data.get("linkedin_url", ""),
+        "Community":     data.get("community_identity", ""),
+        "Years with Snowflake": data.get("years_snowflake", ""),
+        "Conference":    data["conference_name"],
+        "Conf Website":  data.get("conference_website", ""),
+        "Conf Type":     data.get("conference_type", ""),
+        "Conf Start":    str(data.get("conference_start", "")),
+        "Conf End":      str(data.get("conference_end", "")),
+        "Conf City":     data.get("conference_city", ""),
+        "Conf Country":  data.get("conference_country", ""),
+        "Conf Format":   data.get("conference_format", ""),
+        "Talk Title":    data.get("talk_title", ""),
+        "Session Type":  data.get("session_type", ""),
+        "Acceptance":    data.get("acceptance_status", ""),
+        "SF Topics":     ", ".join(data.get("snowflake_topics", [])),
+        "Abstract":      data.get("talk_abstract", ""),
+        "Support Types": ", ".join(data.get("support_types", [])),
+        "Est. Cost USD": data.get("estimated_cost", 0),
+        "Traveling From": data.get("traveling_from", ""),
+        "Notes":         data.get("additional_notes", ""),
     }
 
     try:
-        cursor.execute(SQL, params)
-        sf.commit()
-        cursor.close()
-        sf.close()
-        return True
-    except Exception as e:
-        st.error(f"Could not save submission: {e}")
-        try:
-            cursor.close()
-            sf.close()
-        except Exception:
-            pass
+        resp = requests.post(
+            f"https://formspree.io/f/{form_id}",
+            json=payload,
+            headers={"Accept": "application/json"},
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            return True
+        st.error(f"Submission failed ({resp.status_code}): {resp.text[:300]}")
         return False
-
+    except Exception as e:
+        st.error(f"Submission error: {e}")
+        return False
 
 # ── Session state ─────────────────────────────────────────────────────────────
 if "submitted" not in st.session_state:
