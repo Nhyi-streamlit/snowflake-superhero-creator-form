@@ -3,9 +3,7 @@ import os
 import uuid
 from datetime import datetime
 
-import gspread
 import streamlit as st
-from google.oauth2 import service_account
 
 st.set_page_config(
     page_title="Conference Support — Data Superheroes & Streamlit Creators",
@@ -63,16 +61,6 @@ st.markdown("""
   }
   .section-hint { font-size: 0.87rem; color: #718096; margin-bottom: 18px; }
 
-  .identity-card {
-    border: 2px solid #E2E8F0;
-    border-radius: 10px;
-    padding: 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  .identity-card.active { border-color: #29B5E8; background: #EBF8FF; }
-
   .success-box {
     background: linear-gradient(135deg, #0E2346, #1B3A6B);
     border-radius: 16px;
@@ -85,121 +73,137 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Google Sheets writer ──────────────────────────────────────────────────────
+# ── Snowflake writer ──────────────────────────────────────────────────────────
 
-def _resolve_creds_info() -> dict:
-    """Return service account dict from secrets.toml (local) or env var (HuggingFace/Cloud)."""
-    # Local dev / Streamlit Community Cloud — secrets.toml
+def _get_sf_session():
+    """Return a Snowflake session/cursor. Tries st.connection first, then env vars."""
     try:
-        return dict(st.secrets["gcp_service_account"])
+        conn = st.connection("snowflake")
+        return conn.session(), None
     except Exception:
         pass
-    # HuggingFace Spaces / any host — GCP_SERVICE_ACCOUNT_JSON env var (full JSON string)
-    raw = os.environ.get("GCP_SERVICE_ACCOUNT_JSON", "")
-    if raw:
-        return json.loads(raw)
-    raise RuntimeError(
-        "No GCP credentials found. Set [gcp_service_account] in secrets.toml "
-        "or the GCP_SERVICE_ACCOUNT_JSON environment variable."
-    )
-
-
-def _resolve_sheet_id() -> tuple[str, str]:
-    """Return (spreadsheet_id, worksheet_name)."""
     try:
-        return (
-            st.secrets["google_sheets"]["spreadsheet_id"],
-            st.secrets["google_sheets"].get("worksheet", "Submissions"),
+        import snowflake.connector
+        sf = snowflake.connector.connect(
+            account=os.environ["SNOWFLAKE_ACCOUNT"],
+            user=os.environ["SNOWFLAKE_USER"],
+            password=os.environ["SNOWFLAKE_PASSWORD"],
+            warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "MARKETING_ADHOC"),
+            database="MARKETING",
+            schema="PLAYGROUND",
+            role=os.environ.get("SNOWFLAKE_ROLE", "MARKETING_SENSITIVE_RO"),
         )
+        return sf.cursor(), sf.close
+    except Exception:
+        return None, None
+
+
+def save_submission(data: dict) -> bool:
+    obj, cleanup = _get_sf_session()
+    if obj is None:
+        return False
+
+    SQL = """
+        INSERT INTO MARKETING.PLAYGROUND.SUPERHERO_CREATOR_CONF_SUBMISSIONS (
+            SUBMISSION_ID, SUBMITTED_AT,
+            FIRST_NAME, LAST_NAME, EMAIL, JOB_TITLE, COMPANY, COUNTRY,
+            LINKEDIN_URL, GITHUB_USERNAME, TWITTER_HANDLE, WEBSITE_URL,
+            COMMUNITY_IDENTITY, SUPERHERO_PROFILE_URL, STREAMLIT_CREATOR_PROFILE_URL,
+            SNOWFLAKE_COMMUNITY_USERNAME, YEARS_SNOWFLAKE,
+            LINKEDIN_FOLLOWERS, TWITTER_FOLLOWERS, YOUTUBE_SUBSCRIBERS,
+            NEWSLETTER_SUBSCRIBERS, GITHUB_STARS, OTHER_REACH_NOTES,
+            PAST_TALKS_COUNT, PAST_CONTENT_SUMMARY, NOTABLE_PROJECTS,
+            CONFERENCE_NAME, CONFERENCE_WEBSITE, CONFERENCE_TYPE,
+            CONFERENCE_START_DATE, CONFERENCE_END_DATE,
+            CONFERENCE_CITY, CONFERENCE_COUNTRY, CONFERENCE_FORMAT,
+            TALK_TITLE, SESSION_TYPE, TALK_ABSTRACT, SNOWFLAKE_TOPICS,
+            ACCEPTANCE_STATUS, SUPPORT_TYPES, ESTIMATED_COST_USD,
+            TRAVELING_FROM, ADDITIONAL_NOTES
+        ) VALUES (
+            :sub_id, :submitted_at,
+            :first_name, :last_name, :email, :job_title, :company, :country,
+            :linkedin_url, :github_username, :twitter_handle, :website_url,
+            :community_identity, :superhero_url, :streamlit_url,
+            :sf_community_username, :years_snowflake,
+            :linkedin_followers, :twitter_followers, :youtube_subscribers,
+            :newsletter_subscribers, :github_stars, :other_reach_notes,
+            :past_talks_count, :past_content_summary, :notable_projects,
+            :conference_name, :conference_website, :conference_type,
+            :conference_start, :conference_end,
+            :conference_city, :conference_country, :conference_format,
+            :talk_title, :session_type, :talk_abstract, PARSE_JSON(:snowflake_topics),
+            :acceptance_status, PARSE_JSON(:support_types), :estimated_cost,
+            :traveling_from, :additional_notes
+        )
+    """
+
+    params = {
+        "sub_id": data["submission_id"],
+        "submitted_at": data["submitted_at"],
+        "first_name": data["first_name"],
+        "last_name": data["last_name"],
+        "email": data["email"],
+        "job_title": data.get("job_title", ""),
+        "company": data.get("company", ""),
+        "country": data.get("country", ""),
+        "linkedin_url": data.get("linkedin_url", ""),
+        "github_username": data.get("github_username", ""),
+        "twitter_handle": data.get("twitter_handle", ""),
+        "website_url": data.get("website_url", ""),
+        "community_identity": data.get("community_identity", ""),
+        "superhero_url": data.get("superhero_profile_url", ""),
+        "streamlit_url": data.get("streamlit_creator_profile_url", ""),
+        "sf_community_username": data.get("snowflake_community_username", ""),
+        "years_snowflake": data.get("years_snowflake", ""),
+        "linkedin_followers": data.get("linkedin_followers", 0),
+        "twitter_followers": data.get("twitter_followers", 0),
+        "youtube_subscribers": data.get("youtube_subscribers", 0),
+        "newsletter_subscribers": data.get("newsletter_subscribers", 0),
+        "github_stars": data.get("github_stars", 0),
+        "other_reach_notes": data.get("other_reach_notes", ""),
+        "past_talks_count": data.get("past_talks_count", "0"),
+        "past_content_summary": data.get("past_content_summary", ""),
+        "notable_projects": data.get("notable_projects", ""),
+        "conference_name": data["conference_name"],
+        "conference_website": data.get("conference_website", ""),
+        "conference_type": data.get("conference_type", ""),
+        "conference_start": str(data.get("conference_start", "")),
+        "conference_end": str(data.get("conference_end", "")),
+        "conference_city": data.get("conference_city", ""),
+        "conference_country": data.get("conference_country", ""),
+        "conference_format": data.get("conference_format", ""),
+        "talk_title": data.get("talk_title", ""),
+        "session_type": data.get("session_type", ""),
+        "talk_abstract": data.get("talk_abstract", ""),
+        "snowflake_topics": json.dumps(data.get("snowflake_topics", [])),
+        "acceptance_status": data.get("acceptance_status", ""),
+        "support_types": json.dumps(data.get("support_types", [])),
+        "estimated_cost": float(data.get("estimated_cost", 0) or 0),
+        "traveling_from": data.get("traveling_from", ""),
+        "additional_notes": data.get("additional_notes", ""),
+    }
+
+    try:
+        import snowflake.snowpark
+        if isinstance(obj, snowflake.snowpark.Session):
+            obj.sql(SQL, params=params).collect()
+            return True
     except Exception:
         pass
-    sheet_id = os.environ.get("GOOGLE_SHEET_ID", "")
-    if not sheet_id:
-        raise RuntimeError(
-            "No sheet ID found. Set [google_sheets] in secrets.toml "
-            "or the GOOGLE_SHEET_ID environment variable."
-        )
-    return sheet_id, os.environ.get("GOOGLE_SHEET_WORKSHEET", "Submissions")
 
-
-@st.cache_resource
-def _get_gspread_client():
-    creds_info = _resolve_creds_info()
-    creds = service_account.Credentials.from_service_account_info(
-        creds_info,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ],
-    )
-    return gspread.authorize(creds)
-
-
-def _get_worksheet():
-    client = _get_gspread_client()
-    spreadsheet_id, worksheet_name = _resolve_sheet_id()
-    return client.open_by_key(spreadsheet_id).worksheet(worksheet_name)
-
-
-def save_to_sheets(data: dict) -> bool:
     try:
-        ws = _get_worksheet()
-        row = [
-            data["submission_id"],
-            data["submitted_at"],
-            data["first_name"],
-            data["last_name"],
-            data["email"],
-            data["job_title"],
-            data["company"],
-            data["country"],
-            data["linkedin_url"],
-            data["github_username"],
-            data["twitter_handle"],
-            data["website_url"],
-            # Community identity
-            data["community_identity"],
-            data["superhero_profile_url"],
-            data["streamlit_creator_profile_url"],
-            data["snowflake_community_username"],
-            data["years_snowflake"],
-            # Audience reach
-            data["linkedin_followers"],
-            data["twitter_followers"],
-            data["youtube_subscribers"],
-            data["newsletter_subscribers"],
-            data["github_stars"],
-            data["other_reach_notes"],
-            # Past involvement
-            data["past_talks_count"],
-            data["past_content_summary"],
-            data["notable_projects"],
-            # Conference
-            data["conference_name"],
-            data["conference_website"],
-            data["conference_type"],
-            str(data["conference_start"]),
-            str(data["conference_end"]),
-            data["conference_city"],
-            data["conference_country"],
-            data["conference_format"],
-            # Talk
-            data["talk_title"],
-            data["session_type"],
-            data["talk_abstract"],
-            json.dumps(data["snowflake_topics"]),
-            data["acceptance_status"],
-            # Support
-            json.dumps(data["support_types"]),
-            data["estimated_cost"],
-            data["traveling_from"],
-            data["additional_notes"],
-        ]
-        ws.append_row(row, value_input_option="USER_ENTERED")
+        obj.execute(SQL, params)
+        obj.connection.commit()
         return True
     except Exception as e:
-        st.error(f"Could not save to Google Sheets: {e}")
+        st.error(f"Could not save submission: {e}")
+        if cleanup:
+            cleanup()
         return False
+
+    if cleanup:
+        cleanup()
+    return False
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -341,7 +345,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         newsletter_subscribers = st.number_input("Newsletter subscribers", min_value=0, step=100, value=0)
     with ar3:
         github_stars = st.number_input("Total GitHub stars (across repos)", min_value=0, step=10, value=0)
-        st.markdown("")  # spacer
+        st.markdown("")
 
     other_reach_notes = st.text_input(
         "Other channels / reach notes",
@@ -355,14 +359,12 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.markdown('<p class="section-title">Past Snowflake Involvement</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Share what you\'ve built, written, or presented on Snowflake topics.</p>', unsafe_allow_html=True)
 
-    pi1, pi2 = st.columns(2)
+    pi1, _ = st.columns(2)
     with pi1:
         past_talks_count = st.selectbox(
             "Snowflake-related talks / sessions given (lifetime)",
             ["0", "1–2", "3–5", "6–10", "10+"],
         )
-    with pi2:
-        st.markdown("")  # spacer
 
     past_content_summary = st.text_area(
         "Notable content, blog posts, or videos you've created about Snowflake",
@@ -401,7 +403,7 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     st.divider()
 
-    # ── Section 6: Support Request ────────────────────────────────────────────
+    # ── Section 6: Talk & Support Request ────────────────────────────────────
     st.markdown('<span class="step-label">Section 6 of 6</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Talk & Support Request</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us what you\'ll be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
@@ -461,7 +463,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         height=100,
     )
 
-    st.space("small")
+    st.markdown("")
 
     with st.container(border=True):
         st.caption(
@@ -541,13 +543,12 @@ with st.form("conference_support_form", clear_on_submit=False):
             }
 
             with st.spinner("Submitting…"):
-                ok = save_to_sheets(payload)
+                ok = save_submission(payload)
 
             if ok:
                 st.session_state.submitted = True
                 st.rerun()
             else:
                 st.warning(
-                    "Could not save to Google Sheets — please check your secrets configuration. "
-                    "Contact the program team directly if this issue persists."
+                    "Could not save your submission. Please try again or contact the program team directly."
                 )

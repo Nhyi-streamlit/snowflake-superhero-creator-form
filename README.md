@@ -14,40 +14,36 @@ short_description: Conference support intake form for Snowflake Data Superheroes
 
 An intake form for recognized Snowflake **Data Superheroes** and **Streamlit Creators** who are attending a conference and want to explore what support Snowflake Developer Relations can offer.
 
-## What it collects
+Submissions are saved to `MARKETING.PLAYGROUND.SUPERHERO_CREATOR_CONF_SUBMISSIONS` in Snowflake.
 
-- Contact info and social/community profiles
-- Community identity (Data Superhero, Streamlit Creator, or both)
-- Audience reach across platforms
-- Past Snowflake content and open-source contributions
-- Conference details (name, dates, location, format)
-- Talk/session proposal and acceptance status
-- Support requested (travel, hotel, ticket, coaching, amplification, etc.)
-
-All submissions are written to a private Google Sheet for the DevRel team to review.
-
-## Deploying
-
-### HuggingFace Spaces (Docker)
+## Deploying to HuggingFace Spaces
 
 Set the following **Repository Secrets** in Space Settings → Repository secrets:
 
 | Secret | Description |
 |--------|-------------|
-| `GCP_SERVICE_ACCOUNT_JSON` | Full JSON contents of your GCP service account key file |
-| `GOOGLE_SHEET_ID` | Spreadsheet ID from the Google Sheet URL |
-| `GOOGLE_SHEET_WORKSHEET` | Tab name to write to (default: `Submissions`) |
+| `SNOWFLAKE_ACCOUNT` | Your Snowflake account identifier |
+| `SNOWFLAKE_USER` | Snowflake username |
+| `SNOWFLAKE_PASSWORD` | Snowflake password |
+| `SNOWFLAKE_WAREHOUSE` | Warehouse to use (default: `MARKETING_ADHOC`) |
+| `SNOWFLAKE_ROLE` | Role to use (default: `MARKETING_SENSITIVE_RO`) |
 
-The service account must have **Editor** access on the target spreadsheet.
-
-Run `python setup_sheet.py` locally once to write the header row before going live.
-
-### Local development
+## Local development
 
 ```bash
 pip install -r requirements.txt
-cp .streamlit/secrets.toml.template .streamlit/secrets.toml
-# fill in credentials, then:
-python setup_sheet.py        # write headers once
+# Create .streamlit/secrets.toml with your Snowflake connection details
 streamlit run streamlit_app.py
+```
+
+`.streamlit/secrets.toml` format:
+```toml
+[connections.snowflake]
+account = "your-account"
+user = "your-user"
+password = "your-password"
+warehouse = "MARKETING_ADHOC"
+database = "MARKETING"
+schema = "PLAYGROUND"
+role = "MARKETING_SENSITIVE_RO"
 ```
