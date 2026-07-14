@@ -75,32 +75,56 @@ st.markdown("""
 
 # ── Snowflake writer ──────────────────────────────────────────────────────────
 
-def _get_sf_session():
-    """Return a Snowflake session/cursor. Tries st.connection first, then env vars."""
+def _get_sf_cursor():
+    """Return (cursor, connection) using st.secrets or env vars."""
+    import snowflake.connector
+
+    # Read secrets from Streamlit secrets manager or fall back to env vars
     try:
-        conn = st.connection("snowflake")
-        return conn.session(), None
+        sf_cfg = st.secrets["connections"]["snowflake"]
+        account = sf_cfg.get("account", "")
+        user = sf_cfg.get("user", "")
+        password = sf_cfg.get("password", "")
+        warehouse = sf_cfg.get("warehouse", "MARKETING_ADHOC")
+        role = sf_cfg.get("role", "MARKETING_SENSITIVE_RO")
     except Exception:
-        pass
+        account = os.environ.get("SNOWFLAKE_ACCOUNT", "")
+        user = os.environ.get("SNOWFLAKE_USER", "")
+        password = os.environ.get("SNOWFLAKE_PASSWORD", "")
+        warehouse = os.environ.get("SNOWFLAKE_WAREHOUSE", "MARKETING_ADHOC")
+        role = os.environ.get("SNOWFLAKE_ROLE", "MARKETING_SENSITIVE_RO")
+
+    if not (account and user and password):
+        st.error("Snowflake credentials not found in secrets.")
+        return None, None
+
+    # Strip cloud/region suffixes that are NOT part of the account identifier
+    # (e.g. SFCOGSOPS-SNOWHOUSE_AWS_US_WEST_2 → sfcogsops-snowhouse)
+    for suffix in ("_AWS_US_WEST_2", "_AWS_US_EAST_1", "_AWS_EU_WEST_1",
+                   "_AZURE_EASTUS2", "_AZURE_WESTUS2", "_GCP_US_CENTRAL1"):
+        if account.upper().endswith(suffix):
+            account = account[: len(account) - len(suffix)]
+            break
+
     try:
-        import snowflake.connector
         sf = snowflake.connector.connect(
-            account=os.environ["SNOWFLAKE_ACCOUNT"],
-            user=os.environ["SNOWFLAKE_USER"],
-            password=os.environ["SNOWFLAKE_PASSWORD"],
-            warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "MARKETING_ADHOC"),
+            account=account,
+            user=user,
+            password=password,
+            warehouse=warehouse,
             database="MARKETING",
             schema="PLAYGROUND",
-            role=os.environ.get("SNOWFLAKE_ROLE", "MARKETING_SENSITIVE_RO"),
+            role=role,
         )
-        return sf.cursor(), sf.close
-    except Exception:
+        return sf.cursor(), sf
+    except Exception as e:
+        st.error(f"Snowflake connection failed: {e}")
         return None, None
 
 
 def save_submission(data: dict) -> bool:
-    obj, cleanup = _get_sf_session()
-    if obj is None:
+    cursor, sf = _get_sf_cursor()
+    if cursor is None:
         return False
 
     SQL = """
@@ -120,20 +144,20 @@ def save_submission(data: dict) -> bool:
             ACCEPTANCE_STATUS, SUPPORT_TYPES, ESTIMATED_COST_USD,
             TRAVELING_FROM, ADDITIONAL_NOTES
         ) VALUES (
-            :sub_id, :submitted_at,
-            :first_name, :last_name, :email, :job_title, :company, :country,
-            :linkedin_url, :github_username, :twitter_handle, :website_url,
-            :community_identity, :superhero_url, :streamlit_url,
-            :sf_community_username, :years_snowflake,
-            :linkedin_followers, :twitter_followers, :youtube_subscribers,
-            :newsletter_subscribers, :github_stars, :other_reach_notes,
-            :past_talks_count, :past_content_summary, :notable_projects,
-            :conference_name, :conference_website, :conference_type,
-            :conference_start, :conference_end,
-            :conference_city, :conference_country, :conference_format,
-            :talk_title, :session_type, :talk_abstract, PARSE_JSON(:snowflake_topics),
-            :acceptance_status, PARSE_JSON(:support_types), :estimated_cost,
-            :traveling_from, :additional_notes
+            %(sub_id)s, %(submitted_at)s,
+            %(first_name)s, %(last_name)s, %(email)s, %(job_title)s, %(company)s, %(country)s,
+            %(linkedin_url)s, %(github_username)s, %(twitter_handle)s, %(website_url)s,
+            %(community_identity)s, %(superhero_url)s, %(streamlit_url)s,
+            %(sf_community_username)s, %(years_snowflake)s,
+            %(linkedin_followers)s, %(twitter_followers)s, %(youtube_subscribers)s,
+            %(newsletter_subscribers)s, %(github_stars)s, %(other_reach_notes)s,
+            %(past_talks_count)s, %(past_content_summary)s, %(notable_projects)s,
+            %(conference_name)s, %(conference_website)s, %(conference_type)s,
+            %(conference_start)s, %(conference_end)s,
+            %(conference_city)s, %(conference_country)s, %(conference_format)s,
+            %(talk_title)s, %(session_type)s, %(talk_abstract)s, PARSE_JSON(%(snowflake_topics)s),
+            %(acceptance_status)s, PARSE_JSON(%(support_types)s), %(estimated_cost)s,
+            %(traveling_from)s, %(additional_notes)s
         )
     """
 
@@ -184,26 +208,19 @@ def save_submission(data: dict) -> bool:
     }
 
     try:
-        import snowflake.snowpark
-        if isinstance(obj, snowflake.snowpark.Session):
-            obj.sql(SQL, params=params).collect()
-            return True
-    except Exception:
-        pass
-
-    try:
-        obj.execute(SQL, params)
-        obj.connection.commit()
+        cursor.execute(SQL, params)
+        sf.commit()
+        cursor.close()
+        sf.close()
         return True
     except Exception as e:
         st.error(f"Could not save submission: {e}")
-        if cleanup:
-            cleanup()
+        try:
+            cursor.close()
+            sf.close()
+        except Exception:
+            pass
         return False
-
-    if cleanup:
-        cleanup()
-    return False
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
