@@ -285,13 +285,10 @@ with st.form("conference_support_form", clear_on_submit=False):
         email = st.text_input("Email address *", placeholder="you@example.com")
         company = st.text_input("Company / Organization", placeholder="Acme Corp")
         linkedin_url = st.text_input("LinkedIn URL", placeholder="https://linkedin.com/in/yourprofile")
-        twitter_handle = st.text_input("Twitter / X handle", placeholder="@yourhandle")
     with a2:
         last_name = st.text_input("Last name *", placeholder="Micah")
         job_title = st.text_input("Job title / Role", placeholder="Data Engineer")
         country = st.selectbox("Country *", ["— select —"] + COUNTRIES)
-        github_username = st.text_input("GitHub username", placeholder="yourusername")
-        website_url = st.text_input("Personal website / blog", placeholder="https://yourblog.dev")
 
     st.divider()
 
@@ -458,9 +455,9 @@ with st.form("conference_support_form", clear_on_submit=False):
                 "company": company.strip(),
                 "country": country if country != "— select —" else "",
                 "linkedin_url": linkedin_url.strip(),
-                "github_username": github_username.strip(),
-                "twitter_handle": twitter_handle.strip(),
-                "website_url": website_url.strip(),
+                "github_username": "",
+                "twitter_handle": "",
+                "website_url": "",
                 "community_identity": ", ".join(community_identity),
                 "superhero_profile_url": superhero_profile_url.strip(),
                 "streamlit_creator_profile_url": streamlit_creator_profile_url.strip(),
