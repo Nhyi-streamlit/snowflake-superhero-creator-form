@@ -303,24 +303,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         placeholder="Select your community identity",
     )
 
-    ci1, ci2 = st.columns(2)
-    with ci1:
-        superhero_profile_url = st.text_input(
-            "Data Superhero profile URL",
-            placeholder="https://community.snowflake.com/s/profile/...",
-            help="Link to your Snowflake Community profile page showing the Superhero badge.",
-        )
-        snowflake_community_username = st.text_input(
-            "Snowflake Community Forum username",
-            placeholder="your-forum-handle",
-        )
-    with ci2:
-        streamlit_creator_profile_url = st.text_input(
-            "Streamlit Creators profile URL",
-            placeholder="https://streamlit.io/creators/...",
-            help="Link to your profile on the Streamlit Creators page.",
-        )
-        years_snowflake = st.select_slider(
+    years_snowflake = st.select_slider(
             "Years working with Snowflake",
             options=["< 6 months", "6–12 months", "1–2 years", "2–4 years", "4+ years"],
             value="1–2 years",
@@ -459,9 +442,9 @@ with st.form("conference_support_form", clear_on_submit=False):
                 "twitter_handle": "",
                 "website_url": "",
                 "community_identity": ", ".join(community_identity),
-                "superhero_profile_url": superhero_profile_url.strip(),
-                "streamlit_creator_profile_url": streamlit_creator_profile_url.strip(),
-                "snowflake_community_username": snowflake_community_username.strip(),
+                "superhero_profile_url": "",
+                "streamlit_creator_profile_url": "",
+                "snowflake_community_username": "",
                 "years_snowflake": years_snowflake,
                 "conference_name": conference_name.strip(),
                 "conference_website": conference_website.strip(),
