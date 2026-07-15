@@ -280,14 +280,14 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     a1, a2 = st.columns(2)
     with a1:
-        first_name = st.text_input("First name *", placeholder="Aba")
-        email = st.text_input("Email address *", placeholder="you@example.com")
+        first_name = st.text_input("First name", placeholder="Aba")
+        email = st.text_input("Email address", placeholder="you@example.com")
         company = st.text_input("Company / Organization", placeholder="Acme Corp")
         linkedin_url = st.text_input("LinkedIn URL", placeholder="https://linkedin.com/in/yourprofile")
     with a2:
-        last_name = st.text_input("Last name *", placeholder="Micah")
+        last_name = st.text_input("Last name", placeholder="Micah")
         job_title = st.text_input("Job title / Role", placeholder="Data Engineer")
-        country = st.selectbox("Country *", ["— select —"] + COUNTRIES)
+        country = st.selectbox("Country", ["— select —"] + COUNTRIES)
 
     st.divider()
 
@@ -297,7 +297,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
 
     community_identity = st.multiselect(
-        "I am a... *  (select all that apply)",
+        "I am a... (select all that apply)",
         ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
         placeholder="Select your community identity",
     )
@@ -315,7 +315,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.markdown('<p class="section-title">The Conference</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us about the event you\'re planning to speak at.</p>', unsafe_allow_html=True)
 
-    conference_name = st.text_input("Conference name *", placeholder="PyCon US 2025")
+    conference_name = st.text_input("Conference name", placeholder="PyCon US 2025")
     cf1, cf2 = st.columns(2)
     with cf1:
         conference_website = st.text_input("Conference website", placeholder="https://us.pycon.org")
@@ -407,70 +407,52 @@ with st.form("conference_support_form", clear_on_submit=False):
             use_container_width=True,
         )
 
-    # ── Validation & submit ───────────────────────────────────────────────────
+    # ── Submit ────────────────────────────────────────────────────────────────
     if submitted:
-        errors = []
-        if not first_name.strip():
-            errors.append("First name is required.")
-        if not last_name.strip():
-            errors.append("Last name is required.")
-        if not email.strip() or "@" not in email:
-            errors.append("A valid email address is required.")
-        if country == "— select —":
-            errors.append("Please select your country.")
-        if not community_identity:
-            errors.append("Please select your community identity (Section 2).")
-        if not conference_name.strip():
-            errors.append("Conference name is required.")
+        payload = {
+            "submission_id": str(uuid.uuid4()),
+            "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "first_name": first_name.strip(),
+            "last_name": last_name.strip(),
+            "email": email.strip(),
+            "job_title": job_title.strip(),
+            "company": company.strip(),
+            "country": country if country != "— select —" else "",
+            "linkedin_url": linkedin_url.strip(),
+            "github_username": "",
+            "twitter_handle": "",
+            "website_url": "",
+            "community_identity": ", ".join(community_identity),
+            "superhero_profile_url": "",
+            "streamlit_creator_profile_url": "",
+            "snowflake_community_username": "",
+            "years_snowflake": years_snowflake,
+            "conference_name": conference_name.strip(),
+            "conference_website": conference_website.strip(),
+            "conference_type": conference_type if conference_type != "— select —" else "",
+            "conference_start": conference_start,
+            "conference_end": conference_end,
+            "conference_city": conference_city.strip(),
+            "conference_country": conference_country if conference_country != "— select —" else "",
+            "conference_format": conference_format,
+            "talk_title": talk_title.strip(),
+            "session_type": session_type if session_type != "— select —" else "",
+            "talk_abstract": talk_abstract.strip(),
+            "snowflake_topics": snowflake_topics_selected,
+            "acceptance_status": acceptance_status if acceptance_status != "— select —" else "",
+            "support_types": support_types,
+            "estimated_cost": int(estimated_cost),
+            "traveling_from": traveling_from.strip(),
+            "additional_notes": additional_notes.strip(),
+        }
 
-        if errors:
-            for err in errors:
-                st.error(err)
+        with st.spinner("Submitting…"):
+            ok = save_submission(payload)
+
+        if ok:
+            st.session_state.submitted = True
+            st.rerun()
         else:
-            payload = {
-                "submission_id": str(uuid.uuid4()),
-                "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-                "first_name": first_name.strip(),
-                "last_name": last_name.strip(),
-                "email": email.strip(),
-                "job_title": job_title.strip(),
-                "company": company.strip(),
-                "country": country if country != "— select —" else "",
-                "linkedin_url": linkedin_url.strip(),
-                "github_username": "",
-                "twitter_handle": "",
-                "website_url": "",
-                "community_identity": ", ".join(community_identity),
-                "superhero_profile_url": "",
-                "streamlit_creator_profile_url": "",
-                "snowflake_community_username": "",
-                "years_snowflake": years_snowflake,
-                "conference_name": conference_name.strip(),
-                "conference_website": conference_website.strip(),
-                "conference_type": conference_type if conference_type != "— select —" else "",
-                "conference_start": conference_start,
-                "conference_end": conference_end,
-                "conference_city": conference_city.strip(),
-                "conference_country": conference_country if conference_country != "— select —" else "",
-                "conference_format": conference_format,
-                "talk_title": talk_title.strip(),
-                "session_type": session_type if session_type != "— select —" else "",
-                "talk_abstract": talk_abstract.strip(),
-                "snowflake_topics": snowflake_topics_selected,
-                "acceptance_status": acceptance_status if acceptance_status != "— select —" else "",
-                "support_types": support_types,
-                "estimated_cost": int(estimated_cost),
-                "traveling_from": traveling_from.strip(),
-                "additional_notes": additional_notes.strip(),
-            }
-
-            with st.spinner("Submitting…"):
-                ok = save_submission(payload)
-
-            if ok:
-                st.session_state.submitted = True
-                st.rerun()
-            else:
-                st.warning(
-                    "Could not save your submission. Please try again or contact the program team directly."
-                )
+            st.warning(
+                "Could not save your submission. Please try again or contact the program team directly."
+            )
