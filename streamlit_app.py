@@ -74,10 +74,90 @@ st.markdown("""
 
 # ── Snowflake writer ──────────────────────────────────────────────────────────
 
+def _get_sheets_access_token(refresh_token: str, client_id: str, client_secret: str) -> str:
+    """Exchange refresh token for a fresh access token."""
+    import requests
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
 def save_submission(data: dict) -> bool:
-    """Create a GitHub Issue in the private submissions repo for each submission."""
+    """Append form submission as a row to Google Sheets, with GitHub Issues as fallback."""
     import requests
 
+    # ── Primary: Google Sheets ─────────────────────────────────────────────────
+    refresh_token = client_id = client_secret = spreadsheet_id = ""
+    try:
+        refresh_token  = st.secrets.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = st.secrets.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = st.secrets.get("GOOGLE_SPREADSHEET_ID", "")
+    except Exception:
+        refresh_token  = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+    if all([refresh_token, client_id, client_secret, spreadsheet_id]):
+        try:
+            access_token = _get_sheets_access_token(refresh_token, client_id, client_secret)
+            row = [
+                data.get("submission_id", ""),
+                data.get("submitted_at", ""),
+                data.get("first_name", ""),
+                data.get("last_name", ""),
+                data.get("email", ""),
+                data.get("job_title", ""),
+                data.get("company", ""),
+                data.get("country", ""),
+                data.get("linkedin_url", ""),
+                data.get("community_identity", ""),
+                str(data.get("years_snowflake", "")),
+                data.get("conference_name", ""),
+                data.get("conference_website", ""),
+                data.get("conference_type", ""),
+                str(data.get("conference_start", "")),
+                str(data.get("conference_end", "")),
+                data.get("conference_city", ""),
+                data.get("conference_country", ""),
+                data.get("conference_format", ""),
+                data.get("talk_title", ""),
+                data.get("session_type", ""),
+                data.get("acceptance_status", ""),
+                ", ".join(data.get("snowflake_topics", [])),
+                ", ".join(data.get("support_types", [])),
+                str(data.get("estimated_cost", 0)),
+                data.get("traveling_from", ""),
+                data.get("talk_abstract", ""),
+                data.get("additional_notes", ""),
+            ]
+            append_resp = requests.post(
+                f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
+                f"/values/Sheet1!A:AB:append",
+                params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
+                json={"values": [row]},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15,
+            )
+            if append_resp.status_code == 200:
+                return True
+            st.error(f"Sheets write failed ({append_resp.status_code}): {append_resp.text[:200]}")
+            return False
+        except Exception as e:
+            st.error(f"Sheets submission error: {e}")
+            return False
+
+    # ── Fallback: GitHub Issues ────────────────────────────────────────────────
     gh_token = ""
     try:
         gh_token = st.secrets.get("GITHUB_SUBMISSIONS_TOKEN", "")
@@ -85,71 +165,44 @@ def save_submission(data: dict) -> bool:
         gh_token = os.environ.get("GITHUB_SUBMISSIONS_TOKEN", "")
 
     if not gh_token:
-        st.error("Submission backend not configured (GITHUB_SUBMISSIONS_TOKEN missing).")
+        st.error("No submission backend configured. Please contact the program team.")
         return False
 
     title = (
         f"[Form] {data['first_name']} {data['last_name']} "
         f"— {data.get('conference_name', 'Conference TBD')}"
     )
-
     lines = [
         f"**Submission ID:** {data['submission_id']}",
         f"**Submitted At:** {data['submitted_at']}",
-        "",
-        "## Contact",
+        "", "## Contact",
         f"- **Name:** {data['first_name']} {data['last_name']}",
         f"- **Email:** {data['email']}",
         f"- **Job Title:** {data.get('job_title', '')}",
         f"- **Company:** {data.get('company', '')}",
         f"- **Country:** {data.get('country', '')}",
         f"- **LinkedIn:** {data.get('linkedin_url', '')}",
-        "",
-        "## Community Identity",
+        "", "## Community Identity",
         f"- **Identity:** {data.get('community_identity', '')}",
         f"- **Years with Snowflake:** {data.get('years_snowflake', '')}",
-        "",
-        "## Conference",
+        "", "## Conference",
         f"- **Conference:** {data.get('conference_name', '')}",
-        f"- **Website:** {data.get('conference_website', '')}",
-        f"- **Type:** {data.get('conference_type', '')}",
         f"- **Dates:** {data.get('conference_start', '')} → {data.get('conference_end', '')}",
         f"- **Location:** {data.get('conference_city', '')}, {data.get('conference_country', '')}",
-        f"- **Format:** {data.get('conference_format', '')}",
-        "",
-        "## Talk & Support",
+        "", "## Talk & Support",
         f"- **Talk Title:** {data.get('talk_title', '')}",
-        f"- **Session Type:** {data.get('session_type', '')}",
-        f"- **Acceptance:** {data.get('acceptance_status', '')}",
-        f"- **SF Topics:** {', '.join(data.get('snowflake_topics', []))}",
         f"- **Support Requested:** {', '.join(data.get('support_types', []))}",
         f"- **Est. Travel Cost (USD):** {data.get('estimated_cost', 0)}",
-        f"- **Traveling From:** {data.get('traveling_from', '')}",
-        "",
-        "## Abstract",
-        data.get("talk_abstract", ""),
-        "",
-        "## Additional Notes",
-        data.get("additional_notes", ""),
     ]
-    body = "\n".join(lines)
-
     try:
-        resp = requests.post(
+        requests.post(
             "https://api.github.com/repos/Nhyi-streamlit/devrel-conference-submissions/issues",
-            json={"title": title, "body": body, "labels": ["submission"]},
-            headers={
-                "Authorization": f"token {gh_token}",
-                "Accept": "application/vnd.github.v3+json",
-            },
+            json={"title": title, "body": "\n".join(lines), "labels": ["submission"]},
+            headers={"Authorization": f"token {gh_token}", "Accept": "application/vnd.github.v3+json"},
             timeout=15,
         )
-        if resp.status_code == 201:
-            return True
-        st.error(f"Submission failed ({resp.status_code}): {resp.json().get('message', resp.text[:200])}")
-        return False
-    except Exception as e:
-        st.error(f"Submission error: {e}")
+        return True
+    except Exception:
         return False
 
 # ── Session state ─────────────────────────────────────────────────────────────
