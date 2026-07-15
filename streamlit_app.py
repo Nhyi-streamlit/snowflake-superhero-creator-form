@@ -330,7 +330,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         conference_format = st.radio("Format", ["In-person", "Hybrid", "Virtual"], horizontal=True)
         st.markdown("")
         conference_end = st.date_input("End date")
-        conference_country = st.selectbox("Country", ["— select —"] + COUNTRIES)
+        conference_country = st.selectbox("Conference country", ["— select —"] + COUNTRIES)
 
     st.divider()
 
