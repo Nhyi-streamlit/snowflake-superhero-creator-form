@@ -135,7 +135,9 @@ def save_submission(data: dict) -> bool:
                 data.get("session_type", ""),
                 data.get("acceptance_status", ""),
                 ", ".join(data.get("snowflake_topics", [])),
-                ", ".join(data.get("support_types", [])),
+                data.get("support_rank_1", ""),
+                data.get("support_rank_2", ""),
+                data.get("support_rank_3", ""),
                 str(data.get("estimated_cost", 0)),
                 data.get("traveling_from", ""),
                 data.get("talk_abstract", ""),
@@ -310,27 +312,21 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     st.divider()
 
-    # ── Section 3: The Conference ──────────────────────────────────────────────
+    # ── Section 3: The Event ──────────────────────────────────────────────────
     st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">The Conference</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us about the event you\'re planning to speak at.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to speak at.</p>', unsafe_allow_html=True)
 
-    conference_name = st.text_input("Conference name", placeholder="PyCon US 2025")
-    cf1, cf2 = st.columns(2)
-    with cf1:
-        conference_website = st.text_input("Conference website", placeholder="https://us.pycon.org")
-        conference_type = st.selectbox(
-            "Conference type",
-            ["— select —", "Developer / Tech Conference", "Data & AI Conference", "Open Source Event",
-             "Streamlit Community Event", "Academic / University", "Meetup / Local Event", "Other"],
-        )
-        conference_start = st.date_input("Start date")
-        conference_city = st.text_input("City", placeholder="Pittsburgh")
-    with cf2:
-        conference_format = st.radio("Format", ["In-person", "Hybrid", "Virtual"], horizontal=True)
-        st.markdown("")
-        conference_end = st.date_input("End date")
-        conference_country = st.selectbox("Conference country", ["— select —"] + COUNTRIES)
+    conference_name = st.text_input("Event name", placeholder="PyCon US 2025, local data meetup, etc.")
+    conference_website = st.text_input("Event link", placeholder="https://us.pycon.org")
+
+    # kept in payload for Sheet compatibility but not shown
+    conference_type = ""
+    conference_start = ""
+    conference_end = ""
+    conference_city = ""
+    conference_country = ""
+    conference_format = ""
 
     st.divider()
 
@@ -368,15 +364,26 @@ with st.form("conference_support_form", clear_on_submit=False):
         height=130,
     )
 
-    st.markdown("**What support are you looking for?**")
-    support_types = st.multiselect(
-        "Select all that apply",
-        ["Travel grant (flights / ground transport)", "Hotel / accommodation",
-         "Conference registration / ticket", "Speaker coaching",
-         "Talk / slide deck feedback", "Social amplification",
-         "DevRel introduction or co-presentation", "Snowflake swag / materials"],
-        placeholder="Pick one or more support types",
-    )
+    SUPPORT_OPTIONS = [
+        "— none —",
+        "Travel grant (flights / ground transport)",
+        "Hotel / accommodation",
+        "Conference registration / ticket",
+        "Speaker coaching",
+        "Talk / slide deck feedback",
+        "Social amplification",
+        "DevRel introduction or co-presentation",
+        "Snowflake swag / materials",
+    ]
+    st.markdown("**What support are you looking for?** Rank your top 3.")
+    rk1, rk2, rk3 = st.columns(3)
+    with rk1:
+        support_rank_1 = st.selectbox("1st priority", SUPPORT_OPTIONS, index=0)
+    with rk2:
+        support_rank_2 = st.selectbox("2nd priority", SUPPORT_OPTIONS, index=0)
+    with rk3:
+        support_rank_3 = st.selectbox("3rd priority", SUPPORT_OPTIONS, index=0)
+    support_types = [s for s in [support_rank_1, support_rank_2, support_rank_3] if s != "— none —"]
 
     sup1, sup2 = st.columns(2)
     with sup1:
@@ -429,12 +436,15 @@ with st.form("conference_support_form", clear_on_submit=False):
             "years_snowflake": years_snowflake,
             "conference_name": conference_name.strip(),
             "conference_website": conference_website.strip(),
-            "conference_type": conference_type if conference_type != "— select —" else "",
-            "conference_start": conference_start,
-            "conference_end": conference_end,
-            "conference_city": conference_city.strip(),
-            "conference_country": conference_country if conference_country != "— select —" else "",
+            "conference_type": conference_type,
+            "conference_start": str(conference_start),
+            "conference_end": str(conference_end),
+            "conference_city": conference_city,
+            "conference_country": conference_country,
             "conference_format": conference_format,
+            "support_rank_1": support_rank_1 if support_rank_1 != "— none —" else "",
+            "support_rank_2": support_rank_2 if support_rank_2 != "— none —" else "",
+            "support_rank_3": support_rank_3 if support_rank_3 != "— none —" else "",
             "talk_title": talk_title.strip(),
             "session_type": session_type if session_type != "— select —" else "",
             "talk_abstract": talk_abstract.strip(),
