@@ -120,6 +120,7 @@ def save_submission(data: dict) -> bool:
                 data.get("job_title", ""),
                 data.get("company", ""),
                 data.get("country", ""),
+                data.get("city", ""),
                 data.get("linkedin_url", ""),
                 data.get("community_identity", ""),
                 str(data.get("years_snowflake", "")),
@@ -283,13 +284,16 @@ with st.form("conference_support_form", clear_on_submit=False):
     a1, a2 = st.columns(2)
     with a1:
         first_name = st.text_input("First name", placeholder="Aba")
-        email = st.text_input("Email address", placeholder="you@example.com")
+        country = st.selectbox("Country", ["— select —"] + COUNTRIES)
         company = st.text_input("Company / Organization", placeholder="Acme Corp")
-        linkedin_url = st.text_input("LinkedIn URL", placeholder="https://linkedin.com/in/yourprofile")
     with a2:
         last_name = st.text_input("Last name", placeholder="Micah")
-        job_title = st.text_input("Job title / Role", placeholder="Data Engineer")
-        country = st.selectbox("Country", ["— select —"] + COUNTRIES)
+        city = st.text_input("City", placeholder="San Francisco")
+
+    # removed fields — kept as empty strings for payload compatibility
+    email = ""
+    job_title = ""
+    linkedin_url = ""
 
     st.divider()
 
@@ -421,11 +425,12 @@ with st.form("conference_support_form", clear_on_submit=False):
             "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
-            "email": email.strip(),
-            "job_title": job_title.strip(),
+            "email": email,
+            "job_title": job_title,
             "company": company.strip(),
             "country": country if country != "— select —" else "",
-            "linkedin_url": linkedin_url.strip(),
+            "city": city.strip(),
+            "linkedin_url": linkedin_url,
             "github_username": "",
             "twitter_handle": "",
             "website_url": "",
