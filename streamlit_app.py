@@ -285,13 +285,13 @@ with st.form("conference_support_form", clear_on_submit=False):
     with a1:
         first_name = st.text_input("First name", placeholder="Aba")
         country = st.selectbox("Country", ["— select —"] + COUNTRIES)
-        company = st.text_input("Company / Organization", placeholder="Acme Corp")
+        email = st.text_input("Email address", placeholder="you@example.com")
     with a2:
         last_name = st.text_input("Last name", placeholder="Micah")
         city = st.text_input("City", placeholder="San Francisco")
 
     # removed fields — kept as empty strings for payload compatibility
-    email = ""
+    company = ""
     job_title = ""
     linkedin_url = ""
 
@@ -425,7 +425,7 @@ with st.form("conference_support_form", clear_on_submit=False):
             "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
-            "email": email,
+            "email": email.strip(),
             "job_title": job_title,
             "company": company.strip(),
             "country": country if country != "— select —" else "",
