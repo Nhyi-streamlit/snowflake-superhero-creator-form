@@ -211,6 +211,8 @@ def save_submission(data: dict) -> bool:
 # ── Session state ─────────────────────────────────────────────────────────────
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
+if "num_events" not in st.session_state:
+    st.session_state.num_events = 1
 
 # ── Success screen ────────────────────────────────────────────────────────────
 if st.session_state.submitted:
@@ -321,8 +323,21 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
 
-    conference_name = st.text_input("Event name", placeholder="PyCon US 2025, local data meetup, etc.")
-    conference_website = st.text_input("Event link", placeholder="https://us.pycon.org")
+    event_entries = []
+    for i in range(st.session_state.num_events):
+        label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
+        ec1, ec2 = st.columns(2)
+        with ec1:
+            ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
+        with ec2:
+            elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
+        event_entries.append((ename, elink))
+
+    add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+
+    # combined for payload (pipe-separated if multiple)
+    conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
+    conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
 
     # kept in payload for Sheet compatibility but not shown
     conference_type = ""
@@ -331,7 +346,6 @@ with st.form("conference_support_form", clear_on_submit=False):
     conference_city = ""
     conference_country = ""
     conference_format = ""
-
     st.divider()
 
     # ── Section 4: Talk & Support Request ────────────────────────────────────
@@ -419,6 +433,10 @@ with st.form("conference_support_form", clear_on_submit=False):
         )
 
     # ── Submit ────────────────────────────────────────────────────────────────
+    if add_event_btn:
+        st.session_state.num_events += 1
+        st.rerun()
+
     if submitted:
         payload = {
             "submission_id": str(uuid.uuid4()),
