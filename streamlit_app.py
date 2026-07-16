@@ -217,7 +217,7 @@ if st.session_state.submitted:
 <div class="success-box">
   <div style="font-size:3.5rem; margin-bottom:20px;">🦸</div>
   <h2>You're on our radar!</h2>
-  <p>Thanks for letting us know — the Snowflake Developer Relations team<br>
+  <p>Thanks for letting us know — the Snowflake Community team<br>
   will review your submission and be in touch soon.</p>
 </div>
     """, unsafe_allow_html=True)
@@ -227,10 +227,10 @@ if st.session_state.submitted:
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="page-hero">
-  <div class="eyebrow">Snowflake DevRel · Community Support</div>
+  <div class="eyebrow">Snowflake Community · Community Support</div>
   <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
   <p>Are you a recognized Snowflake Data Superhero or Streamlit Creator heading to a conference, event, or meetup?
-  We want to help. Fill out this form so our Developer Relations team can assess how to best support you.</p>
+  We want to help. Fill out this form so our Snowflake Community team can assess how to best support you.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -372,7 +372,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         "Speaker coaching",
         "Talk / slide deck feedback",
         "Social amplification",
-        "DevRel introduction or co-presentation",
+        "Snowflake Community introduction or co-presentation",
         "Snowflake swag / materials",
     ]
     st.markdown("**What support are you looking for?** Rank your top 3.")
@@ -397,7 +397,7 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     additional_notes = st.text_area(
         "Anything else you'd like us to know?",
-        placeholder="Additional context, timing constraints, co-presenters, past DevRel interactions, etc.",
+        placeholder="Additional context, timing constraints, co-presenters, past Snowflake Community interactions, etc.",
         height=100,
     )
 
@@ -405,7 +405,7 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     with st.container(border=True):
         st.caption(
-            "By submitting this form you agree to be contacted by the Snowflake Developer Relations team "
+            "By submitting this form you agree to be contacted by the Snowflake Community team "
             "regarding event support. Your information will only be used to evaluate and manage this program."
         )
         submitted = st.form_submit_button(
