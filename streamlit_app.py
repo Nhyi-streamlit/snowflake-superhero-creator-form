@@ -5,7 +5,7 @@ from datetime import datetime
 import streamlit as st
 
 st.set_page_config(
-    page_title="Conference Support — Data Superheroes & Streamlit Creators",
+    page_title="Event Support — Data Superheroes & Streamlit Creators",
     page_icon="❄️",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -172,7 +172,7 @@ def save_submission(data: dict) -> bool:
 
     title = (
         f"[Form] {data['first_name']} {data['last_name']} "
-        f"— {data.get('conference_name', 'Conference TBD')}"
+        f"— {data.get('conference_name', 'Event TBD')}"
     )
     lines = [
         f"**Submission ID:** {data['submission_id']}",
@@ -188,7 +188,7 @@ def save_submission(data: dict) -> bool:
         f"- **Identity:** {data.get('community_identity', '')}",
         f"- **Years with Snowflake:** {data.get('years_snowflake', '')}",
         "", "## Conference",
-        f"- **Conference:** {data.get('conference_name', '')}",
+        f"- **Event:** {data.get('conference_name', '')}",
         f"- **Dates:** {data.get('conference_start', '')} → {data.get('conference_end', '')}",
         f"- **Location:** {data.get('conference_city', '')}, {data.get('conference_country', '')}",
         "", "## Talk & Support",
@@ -228,8 +228,8 @@ if st.session_state.submitted:
 st.markdown("""
 <div class="page-hero">
   <div class="eyebrow">Snowflake DevRel · Community Support</div>
-  <h1>Conference Support for Data Superheroes<br>& Streamlit Creators</h1>
-  <p>Are you a recognized Snowflake Data Superhero or Streamlit Creator heading to a conference?
+  <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
+  <p>Are you a recognized Snowflake Data Superhero or Streamlit Creator heading to a conference, event, or meetup?
   We want to help. Fill out this form so our Developer Relations team can assess how to best support you.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -315,7 +315,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     # ── Section 3: The Event ──────────────────────────────────────────────────
     st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to speak at.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
 
     conference_name = st.text_input("Event name", placeholder="PyCon US 2025, local data meetup, etc.")
     conference_website = st.text_input("Event link", placeholder="https://us.pycon.org")
@@ -368,7 +368,7 @@ with st.form("conference_support_form", clear_on_submit=False):
         "— none —",
         "Travel grant (flights / ground transport)",
         "Hotel / accommodation",
-        "Conference registration / ticket",
+        "Event registration / ticket",
         "Speaker coaching",
         "Talk / slide deck feedback",
         "Social amplification",
@@ -406,7 +406,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     with st.container(border=True):
         st.caption(
             "By submitting this form you agree to be contacted by the Snowflake Developer Relations team "
-            "regarding conference support. Your information will only be used to evaluate and manage this program."
+            "regarding event support. Your information will only be used to evaluate and manage this program."
         )
         submitted = st.form_submit_button(
             "Submit — Let us know you're going →",
