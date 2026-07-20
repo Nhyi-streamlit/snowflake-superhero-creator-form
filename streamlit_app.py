@@ -233,7 +233,7 @@ st.markdown("""
   <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
     <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
          alt="Snowflake" height="36"
-         style="filter:brightness(0) invert(1); flex-shrink:0;">
+         style="flex-shrink:0;">
     <div class="eyebrow" style="margin-bottom:0;">Snowflake Community · Community Support</div>
   </div>
   <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
