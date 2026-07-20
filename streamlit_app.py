@@ -230,7 +230,12 @@ if st.session_state.submitted:
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="page-hero">
-  <div class="eyebrow">Snowflake Community · Community Support</div>
+  <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
+         alt="Snowflake" height="36"
+         style="filter:brightness(0) invert(1); flex-shrink:0;">
+    <div class="eyebrow" style="margin-bottom:0;">Snowflake Community · Community Support</div>
+  </div>
   <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
   <p>Are you a recognized Snowflake Data Superhero or Streamlit Creator heading to a conference, event, or meetup?
   We want to help. Fill out this form so our Snowflake Community team can assess how to best support you.</p>
