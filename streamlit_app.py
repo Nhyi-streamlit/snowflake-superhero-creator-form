@@ -17,7 +17,7 @@ st.markdown("""
   section[data-testid="stSidebar"] { display: none; }
 
   .page-hero {
-    background: linear-gradient(135deg, #0E2346 0%, #1B3A6B 60%, #29B5E8 100%);
+    background: #29B5E8;
     padding: 48px 56px;
     border-radius: 16px;
     margin-bottom: 40px;
@@ -233,7 +233,7 @@ st.markdown("""
   <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
     <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
          alt="Snowflake" height="36"
-         style="flex-shrink:0;">
+         style="filter:brightness(0) invert(1); flex-shrink:0;">
     <div class="eyebrow" style="margin-bottom:0;">Snowflake Community · Community Support</div>
   </div>
   <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
