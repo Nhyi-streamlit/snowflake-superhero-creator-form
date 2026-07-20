@@ -365,22 +365,14 @@ with st.form("conference_support_form", clear_on_submit=False):
             ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
              "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
         )
-        acceptance_status = st.selectbox(
-            "Acceptance status",
-            ["— select —", "Accepted to speak", "CFP submitted — awaiting decision",
-             "Planning to submit a CFP", "Invited / confirmed by organizers", "Attending as an attendee only"],
-        )
+        acceptance_status = ""
     with sr_c2:
         snowflake_topics_selected = st.multiselect(
             "Snowflake topics you'll cover (if speaking)",
             SNOWFLAKE_TOPICS,
         )
 
-    talk_abstract = st.text_area(
-        "Talk abstract or description",
-        placeholder="A brief summary of what you'll be presenting — a draft is totally fine.",
-        height=130,
-    )
+    talk_abstract = ""
 
     SUPPORT_OPTIONS = [
         "— none —",
