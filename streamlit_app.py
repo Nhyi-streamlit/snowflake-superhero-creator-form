@@ -13,6 +13,14 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  html, body, [class*="st-"], .stTextInput input, .stSelectbox, .stMultiSelect,
+  .stTextArea textarea, .stNumberInput input, .stRadio label, .stSlider,
+  button, label, p, h1, h2, h3, span, div {
+    font-family: 'Inter', sans-serif !important;
+  }
+
   [data-testid="collapsedControl"] { display: none; }
   section[data-testid="stSidebar"] { display: none; }
 
