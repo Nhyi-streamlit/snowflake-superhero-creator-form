@@ -367,10 +367,11 @@ with st.form("conference_support_form", clear_on_submit=False):
     sr_c1, sr_c2 = st.columns(2)
     with sr_c1:
         session_type = st.selectbox(
-            "Session type — if you know, no worries if you don't",
+            "Session type",
             ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
              "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
         )
+        st.caption("If you know, no worries if you don't.")
         acceptance_status = ""
     with sr_c2:
         snowflake_topics_selected = st.multiselect(
