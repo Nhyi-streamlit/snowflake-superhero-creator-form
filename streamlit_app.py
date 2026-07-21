@@ -362,8 +362,8 @@ with st.form("conference_support_form", clear_on_submit=False):
     talk_title = st.text_input(
         "Talk / session title",
         placeholder="Building Production AI Agents on Snowflake",
-        help="Got a title? Pop it in! No worries if you don't have one yet.",
     )
+    st.caption("If you know, no worries if you don't.")
     sr_c1, sr_c2 = st.columns(2)
     with sr_c1:
         session_type = st.selectbox(
