@@ -370,6 +370,7 @@ with st.form("conference_support_form", clear_on_submit=False):
             "Session type",
             ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
              "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
+            help="If you know, great! No worries if you don't.",
         )
         acceptance_status = ""
     with sr_c2:
