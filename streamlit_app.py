@@ -205,23 +205,61 @@ def save_submission(data: dict) -> bool:
     except Exception:
         return False
 
-# ── Session state ─────────────────────────────────────────────────────────────
-if "submitted" not in st.session_state:
+def save_interest(data: dict) -> bool:
+    """Append interest registration to the 'Interested Speakers' sheet tab."""
+    import requests
+
+    refresh_token = client_id = client_secret = spreadsheet_id = ""
+    try:
+        refresh_token  = st.secrets.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = st.secrets.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = st.secrets.get("GOOGLE_SPREADSHEET_ID", "")
+    except Exception:
+        refresh_token  = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+    if not all([refresh_token, client_id, client_secret, spreadsheet_id]):
+        st.error("Submission backend not configured.")
+        return False
+
+    try:
+        access_token = _get_sheets_access_token(refresh_token, client_id, client_secret)
+        row = [
+            data.get("submission_id", ""),
+            data.get("submitted_at", ""),
+            data.get("first_name", ""),
+            data.get("last_name", ""),
+            data.get("email", ""),
+            data.get("country", ""),
+            data.get("city", ""),
+            data.get("community_identity", ""),
+            ", ".join(data.get("topics", [])),
+            ", ".join(data.get("event_types", [])),
+            data.get("additional_notes", ""),
+        ]
+        resp = requests.post(
+            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
+            f"/values/Interested%20Speakers!A:K:append",
+            params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
+            json={"values": [row]},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=15,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        st.error(f"Submission error: {e}")
+        return False
+
+
+# ── Session state ─────────────────────────────────────────────────────────────if "submitted" not in st.session_state:
     st.session_state.submitted = False
+if "interest_submitted" not in st.session_state:
+    st.session_state.interest_submitted = False
 if "num_events" not in st.session_state:
     st.session_state.num_events = 1
-
-# ── Success screen ────────────────────────────────────────────────────────────
-if st.session_state.submitted:
-    st.markdown("""
-<div class="success-box">
-  <div style="font-size:3.5rem; margin-bottom:20px;">🦸</div>
-  <h2>You're on our radar!</h2>
-  <p>Thanks for letting us know — the Snowflake Community team<br>
-  will review your submission and be in touch soon.</p>
-</div>
-    """, unsafe_allow_html=True)
-    st.stop()
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
@@ -231,11 +269,11 @@ st.markdown("""
     <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
          alt="Snowflake" height="36"
          style="filter:brightness(0) invert(1); flex-shrink:0;">
-    <div class="eyebrow" style="margin-bottom:0;">Snowflake Community · Community Support</div>
+    <div class="eyebrow" style="margin-bottom:0;">Snowflake Voices · Community Support</div>
   </div>
-  <h1>Event Support for Data Superheroes<br>& Streamlit Creators</h1>
-  <p>Are you a recognized Snowflake Data Superhero or Streamlit Creator heading to a conference, event, or meetup?
-  We want to help. Fill out this form so our Snowflake Community team can assess how to best support you.</p>
+  <h1>Snowflake Voices</h1>
+  <p>We want to amplify the voices of our Data Superheroes and Streamlit Creators.
+  Whether you have an event lined up or just want to get on a stage — we'd love to hear from you.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -281,192 +319,312 @@ SNOWFLAKE_TOPICS = [
 ]
 
 
-# ── Form ──────────────────────────────────────────────────────────────────────
-with st.form("conference_support_form", clear_on_submit=False):
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab1, tab2 = st.tabs(["📅  I have an event", "🙋  I'm interested — no event yet"])
 
-    # ── Section 1: About You ──────────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 1 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Basic contact info so we can follow up with you.</p>', unsafe_allow_html=True)
-
-    a1, a2 = st.columns(2)
-    with a1:
-        first_name = st.text_input("First name", placeholder="Aba")
-        country = st.selectbox("Country", ["— select —"] + COUNTRIES)
-        email = st.text_input("Email address", placeholder="you@example.com")
-    with a2:
-        last_name = st.text_input("Last name", placeholder="Micah")
-        city = st.text_input("City", placeholder="San Francisco")
-
-    # removed fields — kept as empty strings for payload compatibility
-    company = ""
-    job_title = ""
-    linkedin_url = ""
-
-    st.divider()
-
-    # ── Section 2: Community Identity ────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 2 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Community Identity</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
-
-    community_identity = st.multiselect(
-        "I am a... (select all that apply)",
-        ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
-        placeholder="Select your community identity",
-    )
-
-    years_snowflake = st.select_slider(
-            "Years working with Snowflake",
-            options=["< 6 months", "6–12 months", "1–2 years", "2–4 years", "4+ years"],
-            value="1–2 years",
-        )
-
-    st.divider()
-
-    # ── Section 3: The Event ──────────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
-
-    event_entries = []
-    for i in range(st.session_state.num_events):
-        label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
-        with ec2:
-            elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
-        event_entries.append((ename, elink))
-
-    add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
-
-    # combined for payload (pipe-separated if multiple)
-    conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
-    conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
-
-    # kept in payload for Sheet compatibility but not shown
-    conference_type = ""
-    conference_start = ""
-    conference_end = ""
-    conference_city = ""
-    conference_country = ""
-    conference_format = ""
-    st.divider()
-
-    # ── Section 4: Talk & Support Request ────────────────────────────────────
-    st.markdown('<span class="step-label">Section 4 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Talk & Support Request</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us what you may be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
-
-    talk_title = st.text_input(
-        "Talk / session title",
-        placeholder="Building Production AI Agents on Snowflake",
-    )
-    st.caption("If you know, no worries if you don't.")
-    sr_c1, sr_c2 = st.columns(2)
-    with sr_c1:
-        session_type = st.selectbox(
-            "Session type",
-            ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
-             "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
-        )
-        st.caption("If you know, no worries if you don't.")
-        acceptance_status = ""
-    with sr_c2:
-        snowflake_topics_selected = st.multiselect(
-            "Snowflake topics you'll cover (if speaking)",
-            SNOWFLAKE_TOPICS,
-        )
-
-    talk_abstract = ""
-
-    SUPPORT_OPTIONS = [
-        "— none —",
-        "Travel grant (flights / ground transport)",
-        "Hotel / accommodation",
-        "Event registration / ticket",
-        "Speaker coaching",
-        "Talk / slide deck feedback",
-        "Social amplification",
-        "Snowflake Community introduction or co-presentation",
-        "Snowflake swag / materials",
-    ]
-    st.markdown("**What support are you looking for?** Rank your top 3.")
-    rk1, rk2, rk3 = st.columns(3)
-    with rk1:
-        support_rank_1 = st.selectbox("1st priority", SUPPORT_OPTIONS, index=0)
-    with rk2:
-        support_rank_2 = st.selectbox("2nd priority", SUPPORT_OPTIONS, index=0)
-    with rk3:
-        support_rank_3 = st.selectbox("3rd priority", SUPPORT_OPTIONS, index=0)
-    support_types = [s for s in [support_rank_1, support_rank_2, support_rank_3] if s != "— none —"]
-
-    sup1, sup2 = st.columns(2)
-    with sup1:
-        estimated_cost = st.number_input(
-            "Estimated travel cost (USD)",
-            min_value=0, max_value=25000, step=50, value=500,
-            help="Rough estimate — flights + hotel if applicable.",
-        )
-    with sup2:
-        traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
-
-    additional_notes = st.text_area(
-        "Anything else you'd like us to know?",
-        placeholder="Additional context, timing constraints, co-presenters, past Snowflake Community interactions, etc.",
-        height=100,
-    )
-
-    st.markdown("")
-
-    with st.container(border=True):
-        st.caption(
-            "By submitting this form you agree to be contacted by the Snowflake Community team "
-            "regarding event support. Your information will only be used to evaluate and manage this program."
-        )
-        submitted = st.form_submit_button(
-            "Submit — Let us know you're going →",
-            type="primary",
-            use_container_width=True,
-        )
-
-    # ── Submit ────────────────────────────────────────────────────────────────
-    if add_event_btn:
-        st.session_state.num_events += 1
-        st.rerun()
-
-    if submitted:
-        payload = {
-            "submission_id": str(uuid.uuid4()),
-            "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-            "first_name": first_name.strip(),
-            "last_name": last_name.strip(),
-            "email": email.strip(),
-            "country": country if country != "— select —" else "",
-            "city": city.strip(),
-            "community_identity": ", ".join(community_identity),
-            "years_snowflake": years_snowflake,
-            "conference_name": conference_name.strip(),
-            "conference_website": conference_website.strip(),
-            "talk_title": talk_title.strip(),
-            "session_type": session_type if session_type != "— select —" else "",
-            "snowflake_topics": snowflake_topics_selected,
-            "support_rank_1": support_rank_1 if support_rank_1 != "— none —" else "",
-            "support_rank_2": support_rank_2 if support_rank_2 != "— none —" else "",
-            "support_rank_3": support_rank_3 if support_rank_3 != "— none —" else "",
-            "estimated_cost": int(estimated_cost),
-            "traveling_from": traveling_from.strip(),
-            "additional_notes": additional_notes.strip(),
-        }
-
-        with st.spinner("Submitting…"):
-            ok = save_submission(payload)
-
-        if ok:
-            st.session_state.submitted = True
+with tab1:
+    if st.session_state.submitted:
+        st.markdown("""
+<div class="success-box">
+  <div style="font-size:3.5rem; margin-bottom:20px;">🦸</div>
+  <h2>You're on our radar!</h2>
+  <p>Thanks for letting us know — the Snowflake Community team<br>
+  will review your submission and be in touch soon.</p>
+</div>
+        """, unsafe_allow_html=True)
+        if st.button("Submit another event", key="reset_main"):
+            st.session_state.submitted = False
+            st.session_state.num_events = 1
             st.rerun()
-        else:
-            st.warning(
-                "Could not save your submission. Please try again or contact the program team directly."
+    else:
+        with st.form("conference_support_form", clear_on_submit=False):
+
+                    # ── Section 1: About You ──────────────────────────────────────────────────
+                    st.markdown('<span class="step-label">Section 1 of 4</span>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-hint">Basic contact info so we can follow up with you.</p>', unsafe_allow_html=True)
+
+                    a1, a2 = st.columns(2)
+                    with a1:
+                        first_name = st.text_input("First name", placeholder="Aba")
+                        country = st.selectbox("Country", ["— select —"] + COUNTRIES)
+                        email = st.text_input("Email address", placeholder="you@example.com")
+                    with a2:
+                        last_name = st.text_input("Last name", placeholder="Micah")
+                        city = st.text_input("City", placeholder="San Francisco")
+
+                    # removed fields — kept as empty strings for payload compatibility
+                    company = ""
+                    job_title = ""
+                    linkedin_url = ""
+
+                    st.divider()
+
+                    # ── Section 2: Community Identity ────────────────────────────────────────
+                    st.markdown('<span class="step-label">Section 2 of 4</span>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-title">Community Identity</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
+
+                    community_identity = st.multiselect(
+                        "I am a... (select all that apply)",
+                        ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
+                        placeholder="Select your community identity",
+                    )
+
+                    years_snowflake = st.select_slider(
+                            "Years working with Snowflake",
+                            options=["< 6 months", "6–12 months", "1–2 years", "2–4 years", "4+ years"],
+                            value="1–2 years",
+                        )
+
+                    st.divider()
+
+                    # ── Section 3: The Event ──────────────────────────────────────────────────
+                    st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
+
+                    event_entries = []
+                    for i in range(st.session_state.num_events):
+                        label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
+                        ec1, ec2 = st.columns(2)
+                        with ec1:
+                            ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
+                        with ec2:
+                            elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
+                        event_entries.append((ename, elink))
+
+                    add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+
+                    # combined for payload (pipe-separated if multiple)
+                    conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
+                    conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
+
+                    # kept in payload for Sheet compatibility but not shown
+                    conference_type = ""
+                    conference_start = ""
+                    conference_end = ""
+                    conference_city = ""
+                    conference_country = ""
+                    conference_format = ""
+                    st.divider()
+
+                    # ── Section 4: Talk & Support Request ────────────────────────────────────
+                    st.markdown('<span class="step-label">Section 4 of 4</span>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-title">Talk & Support Request</p>', unsafe_allow_html=True)
+                    st.markdown('<p class="section-hint">Tell us what you may be presenting and what kind of support would help most.</p>', unsafe_allow_html=True)
+
+                    talk_title = st.text_input(
+                        "Talk / session title",
+                        placeholder="Building Production AI Agents on Snowflake",
+                    )
+                    st.caption("If you know, no worries if you don't.")
+                    sr_c1, sr_c2 = st.columns(2)
+                    with sr_c1:
+                        session_type = st.selectbox(
+                            "Session type",
+                            ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
+                             "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
+                        )
+                        st.caption("If you know, no worries if you don't.")
+                        acceptance_status = ""
+                    with sr_c2:
+                        snowflake_topics_selected = st.multiselect(
+                            "Snowflake topics you'll cover (if speaking)",
+                            SNOWFLAKE_TOPICS,
+                        )
+
+                    talk_abstract = ""
+
+                    SUPPORT_OPTIONS = [
+                        "— none —",
+                        "Travel grant (flights / ground transport)",
+                        "Hotel / accommodation",
+                        "Event registration / ticket",
+                        "Speaker coaching",
+                        "Talk / slide deck feedback",
+                        "Social amplification",
+                        "Snowflake Community introduction or co-presentation",
+                        "Snowflake swag / materials",
+                    ]
+                    st.markdown("**What support are you looking for?** Rank your top 3.")
+                    rk1, rk2, rk3 = st.columns(3)
+                    with rk1:
+                        support_rank_1 = st.selectbox("1st priority", SUPPORT_OPTIONS, index=0)
+                    with rk2:
+                        support_rank_2 = st.selectbox("2nd priority", SUPPORT_OPTIONS, index=0)
+                    with rk3:
+                        support_rank_3 = st.selectbox("3rd priority", SUPPORT_OPTIONS, index=0)
+                    support_types = [s for s in [support_rank_1, support_rank_2, support_rank_3] if s != "— none —"]
+
+                    sup1, sup2 = st.columns(2)
+                    with sup1:
+                        estimated_cost = st.number_input(
+                            "Estimated travel cost (USD)",
+                            min_value=0, max_value=25000, step=50, value=500,
+                            help="Rough estimate — flights + hotel if applicable.",
+                        )
+                    with sup2:
+                        traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
+
+                    additional_notes = st.text_area(
+                        "Anything else you'd like us to know?",
+                        placeholder="Additional context, timing constraints, co-presenters, past Snowflake Community interactions, etc.",
+                        height=100,
+                    )
+
+                    st.markdown("")
+
+                    with st.container(border=True):
+                        st.caption(
+                            "By submitting this form you agree to be contacted by the Snowflake Community team "
+                            "regarding event support. Your information will only be used to evaluate and manage this program."
+                        )
+                        submitted = st.form_submit_button(
+                            "Submit — Let us know you're going →",
+                            type="primary",
+                            use_container_width=True,
+                        )
+
+                    # ── Submit ────────────────────────────────────────────────────────────────
+                    if add_event_btn:
+                        st.session_state.num_events += 1
+                        st.rerun()
+
+                    if submitted:
+                        payload = {
+                            "submission_id": str(uuid.uuid4()),
+                            "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                            "first_name": first_name.strip(),
+                            "last_name": last_name.strip(),
+                            "email": email.strip(),
+                            "country": country if country != "— select —" else "",
+                            "city": city.strip(),
+                            "community_identity": ", ".join(community_identity),
+                            "years_snowflake": years_snowflake,
+                            "conference_name": conference_name.strip(),
+                            "conference_website": conference_website.strip(),
+                            "talk_title": talk_title.strip(),
+                            "session_type": session_type if session_type != "— select —" else "",
+                            "snowflake_topics": snowflake_topics_selected,
+                            "support_rank_1": support_rank_1 if support_rank_1 != "— none —" else "",
+                            "support_rank_2": support_rank_2 if support_rank_2 != "— none —" else "",
+                            "support_rank_3": support_rank_3 if support_rank_3 != "— none —" else "",
+                            "estimated_cost": int(estimated_cost),
+                            "traveling_from": traveling_from.strip(),
+                            "additional_notes": additional_notes.strip(),
+                        }
+
+                        with st.spinner("Submitting…"):
+                            ok = save_submission(payload)
+
+                        if ok:
+                            st.session_state.submitted = True
+                            st.rerun()
+                        else:
+                            st.warning(
+                                "Could not save your submission. Please try again or contact the program team directly."
+                            )
+
+
+with tab2:
+    if st.session_state.interest_submitted:
+        st.markdown("""
+<div class="success-box">
+  <div style="font-size:3.5rem; margin-bottom:20px;">🙋</div>
+  <h2>We've got you!</h2>
+  <p>Thanks for putting your hand up — the Snowflake Community team<br>
+  will be in touch when opportunities come up in your area.</p>
+</div>
+        """, unsafe_allow_html=True)
+        if st.button("Submit another interest", key="reset_interest"):
+            st.session_state.interest_submitted = False
+            st.rerun()
+    else:
+        st.markdown(
+            '<p style="color:#718096; font-size:0.95rem; margin-bottom:24px;">'
+            "Want to speak at a Snowflake Voices event but don't have anything lined up yet? "
+            "Let us know — we're working with local partners across 14 countries to produce community events "
+            "and we'd love to match you with the right opportunity."
+            "</p>",
+            unsafe_allow_html=True,
+        )
+
+        with st.form("interest_form", clear_on_submit=False):
+            st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
+            st.markdown('<p class="section-hint">Quick contact details so we know who you are.</p>', unsafe_allow_html=True)
+
+            i1, i2 = st.columns(2)
+            with i1:
+                i_first_name = st.text_input("First name", placeholder="Aba", key="i_first_name")
+                i_country    = st.selectbox("Country", ["— select —"] + COUNTRIES, key="i_country")
+                i_email      = st.text_input("Email address", placeholder="you@example.com", key="i_email")
+            with i2:
+                i_last_name = st.text_input("Last name", placeholder="Micah", key="i_last_name")
+                i_city      = st.text_input("City", placeholder="San Francisco", key="i_city")
+
+            i_community_identity = st.multiselect(
+                "I am a... (select all that apply)",
+                ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
+                placeholder="Select your community identity",
+                key="i_community_identity",
             )
+
+            st.divider()
+            st.markdown('<p class="section-title">What Do You Want to Talk About?</p>', unsafe_allow_html=True)
+            st.markdown('<p class="section-hint">Tell us the topics you are excited to present on.</p>', unsafe_allow_html=True)
+
+            i_topics = st.multiselect(
+                "Snowflake topics you would like to speak about",
+                SNOWFLAKE_TOPICS,
+                key="i_topics",
+            )
+
+            i_event_types = st.multiselect(
+                "What kind of events are you open to?",
+                ["Meetup / Local event", "Regional conference", "Workshop / Tutorial",
+                 "Hackathon", "Online / Virtual event", "Any"],
+                default=["Any"],
+                key="i_event_types",
+            )
+
+            i_notes = st.text_area(
+                "Anything else you would like us to know?",
+                placeholder="Your background, talk ideas, how far you are willing to travel, languages you speak, etc.",
+                height=100,
+                key="i_notes",
+            )
+
+            st.markdown("")
+            with st.container(border=True):
+                st.caption(
+                    "By submitting this form you agree to be contacted by the Snowflake Community team "
+                    "regarding speaking opportunities. Your information will only be used for this program."
+                )
+                i_submitted = st.form_submit_button(
+                    "I am interested — let us connect →",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            if i_submitted:
+                i_payload = {
+                    "submission_id": str(uuid.uuid4()),
+                    "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                    "first_name": i_first_name.strip(),
+                    "last_name": i_last_name.strip(),
+                    "email": i_email.strip(),
+                    "country": i_country if i_country != "— select —" else "",
+                    "city": i_city.strip(),
+                    "community_identity": ", ".join(i_community_identity),
+                    "topics": i_topics,
+                    "event_types": i_event_types,
+                    "additional_notes": i_notes.strip(),
+                }
+                with st.spinner("Submitting…"):
+                    ok = save_interest(i_payload)
+                if ok:
+                    st.session_state.interest_submitted = True
+                    st.rerun()
+                else:
+                    st.warning("Could not save your response. Please try again.")
