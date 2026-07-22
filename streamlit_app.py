@@ -339,7 +339,7 @@ if st.session_state.submitted:
 with st.form("conference_support_form", clear_on_submit=False):
 
     # ── Section 1: About You ──────────────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 1 of 4</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 1 of 5</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Basic contact info so we can follow up with you.</p>', unsafe_allow_html=True)
 
@@ -360,7 +360,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.divider()
 
     # ── Section 2: Community Identity ─────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 2 of 4</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 2 of 5</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Community Identity</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
 
@@ -379,7 +379,7 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.divider()
 
     # ── Section 3: Event or Interest ──────────────────────────────────────────
-    st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 3 of 5</span>', unsafe_allow_html=True)
     st.markdown('<p class="section-title">Are you heading to an event, or looking to speak?</p>', unsafe_allow_html=True)
 
     s3_event, s3_interest = st.tabs(["📅  I have an event and I'm looking for support", "🙋  I don't have an event but I want to speak"])
@@ -432,9 +432,9 @@ with st.form("conference_support_form", clear_on_submit=False):
     st.divider()
 
     # ── Section 4: Talk, Support & Interest ───────────────────────────────────
-    st.markdown('<span class="step-label">Section 4 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Talk, Support & Interest</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us what you may be presenting and what kind of support would help most. If you don\'t have an event yet, just tell us what you\'re interested in.</p>', unsafe_allow_html=True)
+    st.markdown('<span class="step-label">Section 4 of 5</span>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Your Talk</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Tell us what you may be presenting. No worries if the details are still taking shape.</p>', unsafe_allow_html=True)
 
     talk_title = st.text_input(
         "Talk / session title",
@@ -459,6 +459,13 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     talk_abstract = ""
 
+    st.divider()
+
+    # ── Section 5: Support ────────────────────────────────────────────────────
+    st.markdown('<span class="step-label">Section 5 of 5</span>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">What Support Are You Looking For?</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-hint">Rank your top 3 priorities and we will work from there.</p>', unsafe_allow_html=True)
+
     SUPPORT_OPTIONS = [
         "— none —",
         "Travel grant (flights / ground transport)",
@@ -470,7 +477,6 @@ with st.form("conference_support_form", clear_on_submit=False):
         "Snowflake Community introduction or co-presentation",
         "Snowflake swag / materials",
     ]
-    st.markdown("**What support are you looking for?** Rank your top 3.")
     rk1, rk2, rk3 = st.columns(3)
     with rk1:
         support_rank_1 = st.selectbox("1st priority", SUPPORT_OPTIONS, index=0)
