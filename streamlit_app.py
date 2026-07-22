@@ -437,8 +437,8 @@ with st.form("conference_support_form", clear_on_submit=False):
         preferred_event_types = st.multiselect(
             "Types of events you would be open to speaking at",
             ["Meetup / Local event", "Regional conference", "Workshop / Tutorial",
-             "Hackathon", "Online / Virtual event", "Any"],
-            key="preferred_event_types",
+             "Hackathon", "Online / Virtual event"],
+            key="preferred_event_types_v2",
         )
 
         add_event_btn = False  # not used in this path
