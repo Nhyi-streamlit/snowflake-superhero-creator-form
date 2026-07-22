@@ -255,7 +255,8 @@ def save_interest(data: dict) -> bool:
         return False
 
 
-# ── Session state ─────────────────────────────────────────────────────────────if "submitted" not in st.session_state:
+# ── Session state ─────────────────────────────────────────────────────────────
+if "submitted" not in st.session_state:
     st.session_state.submitted = False
 if "interest_submitted" not in st.session_state:
     st.session_state.interest_submitted = False
