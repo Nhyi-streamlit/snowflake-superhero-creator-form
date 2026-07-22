@@ -378,33 +378,56 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     st.divider()
 
-    # ── Section 3: The Event ───────────────────────────────────────────────────
+    # ── Section 3: Event or Interest ──────────────────────────────────────────
     st.markdown('<span class="step-label">Section 3 of 4</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">The Event</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at. No event yet? No worries — skip this and tell us what you\'re open to in Section 4.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">Are you heading to an event, or looking to speak?</p>', unsafe_allow_html=True)
 
-    event_entries = []
-    for i in range(st.session_state.num_events):
-        label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
-        with ec2:
-            elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
-        event_entries.append((ename, elink))
+    s3_event, s3_interest = st.tabs(["📅  I have an event and I'm looking for support", "🙋  I don't have an event but I want to speak"])
 
-    add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+    with s3_event:
+        st.markdown('<p class="section-title" style="margin-top:16px;">The Event</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
 
-    conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
-    conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
+        event_entries = []
+        for i in range(st.session_state.num_events):
+            label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
+            ec1, ec2 = st.columns(2)
+            with ec1:
+                ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
+            with ec2:
+                elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
+            event_entries.append((ename, elink))
 
-    # kept in payload for Sheet compatibility but not shown
-    conference_type = ""
-    conference_start = ""
-    conference_end = ""
-    conference_city = ""
-    conference_country = ""
-    conference_format = ""
+        add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+
+    with s3_interest:
+        st.markdown('<p class="section-title" style="margin-top:16px;">Interested in speaking but no event lined up yet?</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Let us know what kinds of events you\'d be open to — we\'re working with local partners to create opportunities in 14 countries.</p>', unsafe_allow_html=True)
+
+        preferred_event_types = st.multiselect(
+            "Types of events you would be open to speaking at",
+            ["Meetup / Local event", "Regional conference", "Workshop / Tutorial",
+             "Hackathon", "Online / Virtual event", "Any"],
+            key="preferred_event_types",
+        )
+
+        add_event_btn = False  # not used in this path
+
+    # ── Compute event payload values (safe defaults if interest tab used) ──────
+    try:
+        conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
+        conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
+    except NameError:
+        conference_name = ""
+        conference_website = ""
+    try:
+        preferred_event_types
+    except NameError:
+        preferred_event_types = []
+
+    # kept in payload for Sheet compatibility
+    conference_type = conference_start = conference_end = ""
+    conference_city = conference_country = conference_format = ""
 
     st.divider()
 
@@ -466,19 +489,6 @@ with st.form("conference_support_form", clear_on_submit=False):
         )
     with sup2:
         traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
-
-    st.divider()
-
-    # ── Interest (no event yet) ────────────────────────────────────────────────
-    st.markdown('<p class="section-title">Interested in speaking but no event lined up yet?</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Let us know what kinds of events you\'d be open to — we\'re working with local partners to create opportunities in 14 countries.</p>', unsafe_allow_html=True)
-
-    preferred_event_types = st.multiselect(
-        "Types of events you would be open to speaking at",
-        ["Meetup / Local event", "Regional conference", "Workshop / Tutorial",
-         "Hackathon", "Online / Virtual event", "Any"],
-        key="preferred_event_types",
-    )
 
     additional_notes = st.text_area(
         "Anything else you'd like us to know?",
