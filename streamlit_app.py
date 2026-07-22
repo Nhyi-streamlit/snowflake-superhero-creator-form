@@ -400,6 +400,36 @@ with st.form("conference_support_form", clear_on_submit=False):
 
         add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
 
+        st.divider()
+
+        # ── Section 4 (event path only): Your Talk ───────────────────────────
+        st.markdown('<span class="step-label">Section 4 of 5</span>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Your Talk</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Tell us what you may be presenting. No worries if the details are still taking shape.</p>', unsafe_allow_html=True)
+
+        talk_title = st.text_input(
+            "Talk / session title",
+            placeholder="Building Production AI Agents on Snowflake",
+        )
+        st.caption("If you know, no worries if you don't.")
+
+        sr_c1, sr_c2 = st.columns(2)
+        with sr_c1:
+            session_type = st.selectbox(
+                "Session type",
+                ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
+                 "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
+            )
+            st.caption("If you know, no worries if you don't.")
+            acceptance_status = ""
+        with sr_c2:
+            snowflake_topics_selected = st.multiselect(
+                "Snowflake topics you'll cover (or want to speak about)",
+                SNOWFLAKE_TOPICS,
+            )
+
+        talk_abstract = ""
+
     with s3_interest:
         st.markdown('<p class="section-title" style="margin-top:16px;">Interested in speaking but no event lined up yet?</p>', unsafe_allow_html=True)
         st.markdown('<p class="section-hint">Let us know what kinds of events you\'d be open to — we\'re working with local partners to create opportunities in 14 countries.</p>', unsafe_allow_html=True)
@@ -412,6 +442,12 @@ with st.form("conference_support_form", clear_on_submit=False):
         )
 
         add_event_btn = False  # not used in this path
+        # safe defaults for talk fields (not shown in this tab)
+        talk_title = ""
+        session_type = "— select —"
+        snowflake_topics_selected = []
+        talk_abstract = ""
+        acceptance_status = ""
 
     # ── Compute event payload values (safe defaults if interest tab used) ──────
     try:
@@ -428,36 +464,6 @@ with st.form("conference_support_form", clear_on_submit=False):
     # kept in payload for Sheet compatibility
     conference_type = conference_start = conference_end = ""
     conference_city = conference_country = conference_format = ""
-
-    st.divider()
-
-    # ── Section 4: Talk, Support & Interest ───────────────────────────────────
-    st.markdown('<span class="step-label">Section 4 of 5</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">Your Talk</p>', unsafe_allow_html=True)
-    st.markdown('<p class="section-hint">Tell us what you may be presenting. No worries if the details are still taking shape.</p>', unsafe_allow_html=True)
-
-    talk_title = st.text_input(
-        "Talk / session title",
-        placeholder="Building Production AI Agents on Snowflake",
-    )
-    st.caption("If you know, no worries if you don't.")
-
-    sr_c1, sr_c2 = st.columns(2)
-    with sr_c1:
-        session_type = st.selectbox(
-            "Session type",
-            ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
-             "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
-        )
-        st.caption("If you know, no worries if you don't.")
-        acceptance_status = ""
-    with sr_c2:
-        snowflake_topics_selected = st.multiselect(
-            "Snowflake topics you'll cover (or want to speak about)",
-            SNOWFLAKE_TOPICS,
-        )
-
-    talk_abstract = ""
 
     st.divider()
 
