@@ -469,7 +469,7 @@ with st.form("conference_support_form", clear_on_submit=False):
 
     # ── Section 5: Support ────────────────────────────────────────────────────
     st.markdown('<span class="step-label">Section 5 of 5</span>', unsafe_allow_html=True)
-    st.markdown('<p class="section-title">What Support Are You Looking For?</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-title">What support would be helpful?</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-hint">Rank your top 3 priorities and we will work from there.</p>', unsafe_allow_html=True)
 
     SUPPORT_OPTIONS = [
