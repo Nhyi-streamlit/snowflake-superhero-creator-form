@@ -5,7 +5,7 @@ from datetime import datetime
 import streamlit as st
 
 st.set_page_config(
-    page_title="Event Support — Data Superheroes & Streamlit Creators",
+    page_title="Snowflake Community Voices",
     page_icon="❄️",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -271,9 +271,9 @@ st.markdown("""
     <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
          alt="Snowflake" height="36"
          style="filter:brightness(0) invert(1); flex-shrink:0;">
-    <div class="eyebrow" style="margin-bottom:0;">Snowflake Voices · Community Support</div>
+    <div class="eyebrow" style="margin-bottom:0;">Snowflake Community Voices · Community Support</div>
   </div>
-  <h1>Snowflake Voices</h1>
+  <h1>Snowflake Community Voices</h1>
   <p>We want to amplify the voices of our Data Superheroes and Streamlit Creators.
   Whether you have an event lined up or just want to get on a stage — we'd love to hear from you.</p>
 </div>
