@@ -292,14 +292,13 @@ else:
 # ── Budget ─────────────────────────────────────────────────────────────────────
 if budget_rows:
     st.markdown('<div class="section-header">Partner Budget</div>', unsafe_allow_html=True)
-    b1, b2, b3 = st.columns(len(budget_rows) if budget_rows else 1)
-    cols = [b1, b2, b3]
-    for i, r in enumerate(budget_rows[:3]):
+    cols = st.columns(max(len(budget_rows), 1))
+    for i, r in enumerate(budget_rows):
         partner = r.get("Partner", "").strip()
         amount  = r.get("Amount", "").strip()
         cities  = r.get("Cities", "").strip()
         if partner:
-            cols[i].markdown(f"""
+            cols[i % len(cols)].markdown(f"""
 <div class="stat-card">
   <div style="font-size:1.1rem; font-weight:700; color:#0E2346; margin-bottom:4px;">{partner}</div>
   <div class="number" style="font-size:1.8rem;">{amount or "TBD"}</div>
