@@ -125,6 +125,31 @@ _, interest_rows    = load_sheet("Interested Speakers")
 _, internal_rows    = load_sheet("Internal Submissions")
 _, budget_rows      = load_sheet("Budget Breakdown")
 
+# ── Credentials check ─────────────────────────────────────────────────────────
+_has_creds = False
+try:
+    _has_creds = all([
+        st.secrets.get("GOOGLE_REFRESH_TOKEN", ""),
+        st.secrets.get("GOOGLE_CLIENT_ID", ""),
+        st.secrets.get("GOOGLE_CLIENT_SECRET", ""),
+        st.secrets.get("GOOGLE_SPREADSHEET_ID", ""),
+    ])
+except Exception:
+    _has_creds = False
+
+if not _has_creds:
+    st.error(
+        "**Missing secrets — dashboard cannot load live data.**\n\n"
+        "Go to your Streamlit Cloud app settings → **Secrets** and add:\n\n"
+        "```\n"
+        "GOOGLE_REFRESH_TOKEN = \"...\"\n"
+        "GOOGLE_CLIENT_ID = \"...\"\n"
+        "GOOGLE_CLIENT_SECRET = \"...\"\n"
+        "GOOGLE_SPREADSHEET_ID = \"1zQlOQYBqyVn9pAFjNQCM0LZleq1VktUmqFbuRq3Je8c\"\n"
+        "```\n\n"
+        "Copy the same values from the main form app's secrets."
+    )
+
 
 # ── Top-level stats ────────────────────────────────────────────────────────────
 accepted  = sum(1 for r in project_rows if "accepted" in r.get("RSVP status", "").lower())
