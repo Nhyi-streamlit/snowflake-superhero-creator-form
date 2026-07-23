@@ -156,60 +156,81 @@ with refresh_col:
         st.cache_data.clear()
         st.rerun()
 
-# ── Accepted Participants (from Overall Project Sheet) ─────────────────────────
-st.markdown('<div class="section-header">✅ Accepted Participants</div>', unsafe_allow_html=True)
-
+# ── Accepted + Submissions side by side ───────────────────────────────────────
 accepted_rows = [r for r in project_rows if "accepted" in r.get("RSVP status", "").lower()]
 
-if accepted_rows:
-    cols_per_row = 3
-    for i in range(0, len(accepted_rows), cols_per_row):
-        chunk = accepted_rows[i:i + cols_per_row]
-        cols = st.columns(cols_per_row)
-        for col, r in zip(cols, chunk):
+left_col, right_col = st.columns(2)
+
+# Left: Accepted Participants from Overall Project Sheet
+with left_col:
+    st.markdown(f'<div class="section-header">✅ Accepted Participants ({len(accepted_rows)})</div>', unsafe_allow_html=True)
+    if accepted_rows:
+        for r in accepted_rows:
             name    = r.get("Name", "").strip()
             country = r.get("Country ", r.get("Country", "")).strip()
             city    = r.get("City", "").strip()
             email   = r.get("Email", "").strip()
             notes   = r.get("Notes", "").strip()
             loc     = ", ".join(x for x in [city, country] if x)
-            col.markdown(f"""
-<div style="background:#F0FFF4; border:1px solid #C6F6D5; border-radius:10px; padding:16px 18px; margin-bottom:10px;">
-  <div style="font-weight:700; color:#0E2346; font-size:0.95rem; margin-bottom:4px;">{name}</div>
-  <div style="font-size:0.82rem; color:#4A5568;">📍 {loc}</div>
-  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
-  {f'<div style="font-size:0.80rem; color:#718096; margin-top:4px; font-style:italic;">{notes}</div>' if notes else ''}
-  <div style="margin-top:8px;"><span class="badge-accepted">Accepted</span></div>
+            st.markdown(f"""
+<div style="background:#F0FFF4; border:1px solid #C6F6D5; border-radius:10px; padding:14px 16px; margin-bottom:8px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div style="font-weight:700; color:#0E2346; font-size:0.93rem;">{name}</div>
+    <span class="badge-accepted">Accepted</span>
+  </div>
+  <div style="font-size:0.82rem; color:#4A5568; margin-top:3px;">📍 {loc}</div>
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:3px; font-style:italic;">{notes}</div>' if notes else ''}
 </div>""", unsafe_allow_html=True)
-else:
-    st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No accepted participants yet.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No accepted participants yet — update the Overall Project Sheet to add them.</div>', unsafe_allow_html=True)
 
-# ── All participants with status ───────────────────────────────────────────────
-with st.expander(f"All participants ({len(project_rows)} total)", expanded=False):
-    if project_rows:
+    # All participants expander
+    with st.expander(f"All participants — {len(project_rows)} total", expanded=False):
         for r in project_rows:
-            name    = r.get("Name", "").strip()
+            name   = r.get("Name", "").strip()
             country = r.get("Country ", r.get("Country", "")).strip()
-            city    = r.get("City", "").strip()
-            status  = r.get("RSVP status", "").strip()
-            loc     = ", ".join(x for x in [city, country] if x)
-
+            city   = r.get("City", "").strip()
+            status = r.get("RSVP status", "").strip()
+            loc    = ", ".join(x for x in [city, country] if x)
             badge_class = "badge-unknown"
-            if "accepted" in status.lower():  badge_class = "badge-accepted"
-            elif "declined" in status.lower(): badge_class = "badge-declined"
-            elif "awaiting" in status.lower(): badge_class = "badge-awaiting"
-
+            if "accepted" in status.lower():   badge_class = "badge-accepted"
+            elif "declined" in status.lower():  badge_class = "badge-declined"
+            elif "awaiting" in status.lower():  badge_class = "badge-awaiting"
             st.markdown(f"""
 <div style="display:flex; align-items:center; justify-content:space-between;
-     padding:8px 14px; background:#FAFAFA; border-radius:8px; margin-bottom:6px; border:1px solid #EDF2F7;">
+     padding:7px 12px; background:#FAFAFA; border-radius:8px; margin-bottom:5px; border:1px solid #EDF2F7;">
   <div>
-    <span style="font-weight:600; font-size:0.92rem; color:#0E2346;">{name}</span>
-    <span style="font-size:0.80rem; color:#718096; margin-left:8px;">{loc}</span>
+    <span style="font-weight:600; font-size:0.90rem; color:#0E2346;">{name}</span>
+    <span style="font-size:0.79rem; color:#718096; margin-left:8px;">{loc}</span>
   </div>
   <span class="{badge_class}">{status or 'Unknown'}</span>
 </div>""", unsafe_allow_html=True)
+
+# Right: Form Submissions from Sheet1
+with right_col:
+    st.markdown(f'<div class="section-header">📋 Form Submissions ({len(submission_rows)})</div>', unsafe_allow_html=True)
+    if submission_rows:
+        for r in submission_rows:
+            name    = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
+            email   = r.get("Email", "").strip()
+            event   = r.get("Event Name", "").strip()
+            country = r.get("Country", "").strip()
+            city    = r.get("City", "").strip()
+            talk    = r.get("Talk Title", "").strip()
+            sub_at  = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
+            loc     = ", ".join(x for x in [city, country] if x)
+            st.markdown(f"""
+<div style="background:#FFFAF0; border:1px solid #FEEBC8; border-radius:10px; padding:14px 16px; margin-bottom:8px;">
+  <div style="font-weight:700; color:#0E2346; font-size:0.93rem;">{name or 'Anonymous'}</div>
+  <div style="font-size:0.82rem; color:#4A5568; margin-top:3px;">📍 {loc}</div>
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
+  {f'<div style="font-size:0.79rem; color:#0E2346; margin-top:3px; font-weight:600;">🎤 {event}</div>' if event else ''}
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px; font-style:italic;">{talk}</div>' if talk else ''}
+  {f'<div style="font-size:0.77rem; color:#A0AEC0; margin-top:5px;">Submitted {sub_at}</div>' if sub_at else ''}
+</div>""", unsafe_allow_html=True)
     else:
-        st.info("No data loaded. Check Google Sheets credentials in secrets.")
+        st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No form submissions yet — share the form to get started.</div>', unsafe_allow_html=True)
 
 # ── Interested Speakers ─────────────────────────────────────────────────────────
 st.markdown(f'<div class="section-header">🙋 Interested Speakers ({len(interest_rows)})</div>', unsafe_allow_html=True)
@@ -220,43 +241,25 @@ if interest_rows:
         chunk = interest_rows[i:i + cols_per_row]
         cols = st.columns(cols_per_row)
         for col, r in zip(cols, chunk):
-            name     = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
-            country  = r.get("Country", "").strip()
-            city     = r.get("City", "").strip()
-            identity = r.get("Community Identity", "").strip()
-            topics   = r.get("Topics of Interest", "").strip()
+            name      = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
+            country   = r.get("Country", "").strip()
+            city      = r.get("City", "").strip()
+            identity  = r.get("Community Identity", "").strip()
+            topics    = r.get("Topics of Interest", "").strip()
             evt_types = r.get("Preferred Event Types", "").strip()
-            sub_at   = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
-            loc      = ", ".join(x for x in [city, country] if x)
+            sub_at    = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
+            loc       = ", ".join(x for x in [city, country] if x)
             col.markdown(f"""
-<div style="background:#EBF8FF; border:1px solid #BEE3F8; border-radius:10px; padding:16px 18px; margin-bottom:10px;">
-  <div style="font-weight:700; color:#0E2346; font-size:0.95rem; margin-bottom:4px;">{name or 'Anonymous'}</div>
+<div style="background:#EBF8FF; border:1px solid #BEE3F8; border-radius:10px; padding:14px 16px; margin-bottom:8px;">
+  <div style="font-weight:700; color:#0E2346; font-size:0.93rem; margin-bottom:3px;">{name or 'Anonymous'}</div>
   {f'<div style="font-size:0.82rem; color:#4A5568;">📍 {loc}</div>' if loc else ''}
-  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">👤 {identity}</div>' if identity else ''}
-  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">🎯 {topics[:80] + "…" if len(topics) > 80 else topics}</div>' if topics else ''}
-  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">🗓 {evt_types}</div>' if evt_types else ''}
-  {f'<div style="font-size:0.78rem; color:#A0AEC0; margin-top:6px;">{sub_at}</div>' if sub_at else ''}
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">👤 {identity}</div>' if identity else ''}
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">🎯 {topics[:80] + "…" if len(topics) > 80 else topics}</div>' if topics else ''}
+  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">🗓 {evt_types}</div>' if evt_types else ''}
+  {f'<div style="font-size:0.77rem; color:#A0AEC0; margin-top:5px;">{sub_at}</div>' if sub_at else ''}
 </div>""", unsafe_allow_html=True)
 else:
     st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No interest registrations yet.</div>', unsafe_allow_html=True)
-
-# ── Form Submissions ───────────────────────────────────────────────────────────
-with st.expander(f"Form submissions — Sheet1 ({len(submission_rows)} total)", expanded=False):
-    if submission_rows:
-        for r in submission_rows:
-            name  = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
-            email = r.get("Email", "")
-            event = r.get("Event Name", "")
-            country = r.get("Country", "")
-            sub_at = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
-            st.markdown(f"""
-<div class="asset-card">
-  <div style="font-weight:600; color:#0E2346;">{name}</div>
-  <div class="desc">{email}</div>
-  <div class="desc">🎤 {event or 'No event specified'} &nbsp;·&nbsp; {country} &nbsp;·&nbsp; {sub_at}</div>
-</div>""", unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color:#718096; font-size:0.9rem;">No form submissions yet — share the form to get started.</div>', unsafe_allow_html=True)
 
 
 # ── Budget ─────────────────────────────────────────────────────────────────────
