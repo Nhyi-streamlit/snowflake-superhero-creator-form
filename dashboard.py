@@ -132,13 +132,14 @@ declined  = sum(1 for r in project_rows if "declined" in r.get("RSVP status", ""
 awaiting  = sum(1 for r in project_rows if "awaiting" in r.get("RSVP status", "").lower())
 countries = len({r.get("Country ", r.get("Country", "")).strip() for r in project_rows if r.get("Country ", r.get("Country", "")).strip()})
 
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 for col, number, label in [
     (c1, len(project_rows),            "TOTAL PARTICIPANTS"),
     (c2, accepted,                     "ACCEPTED"),
     (c3, awaiting,                     "AWAITING RESPONSE"),
-    (c4, len(submission_rows),         "FORM SUBMISSIONS"),
-    (c5, countries,                    "COUNTRIES REACHED"),
+    (c4, len(interest_rows),           "INTERESTED SPEAKERS"),
+    (c5, len(submission_rows),         "FORM SUBMISSIONS"),
+    (c6, countries,                    "COUNTRIES REACHED"),
 ]:
     col.markdown(f"""
 <div class="stat-card">
@@ -148,28 +149,56 @@ for col, number, label in [
 
 st.markdown("")
 
-# ── Two columns: Project participants + Submissions ───────────────────────────
-left, right = st.columns([3, 2])
+# ── Refresh button ────────────────────────────────────────────────────────────
+refresh_col, _ = st.columns([1, 4])
+with refresh_col:
+    if st.button("🔄 Refresh data"):
+        st.cache_data.clear()
+        st.rerun()
 
-with left:
-    st.markdown('<div class="section-header">Participant Tracker — Overall Project Sheet</div>', unsafe_allow_html=True)
+# ── Accepted Participants (from Overall Project Sheet) ─────────────────────────
+st.markdown('<div class="section-header">✅ Accepted Participants</div>', unsafe_allow_html=True)
+
+accepted_rows = [r for r in project_rows if "accepted" in r.get("RSVP status", "").lower()]
+
+if accepted_rows:
+    cols_per_row = 3
+    for i in range(0, len(accepted_rows), cols_per_row):
+        chunk = accepted_rows[i:i + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for col, r in zip(cols, chunk):
+            name    = r.get("Name", "").strip()
+            country = r.get("Country ", r.get("Country", "")).strip()
+            city    = r.get("City", "").strip()
+            email   = r.get("Email", "").strip()
+            notes   = r.get("Notes", "").strip()
+            loc     = ", ".join(x for x in [city, country] if x)
+            col.markdown(f"""
+<div style="background:#F0FFF4; border:1px solid #C6F6D5; border-radius:10px; padding:16px 18px; margin-bottom:10px;">
+  <div style="font-weight:700; color:#0E2346; font-size:0.95rem; margin-bottom:4px;">{name}</div>
+  <div style="font-size:0.82rem; color:#4A5568;">📍 {loc}</div>
+  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
+  {f'<div style="font-size:0.80rem; color:#718096; margin-top:4px; font-style:italic;">{notes}</div>' if notes else ''}
+  <div style="margin-top:8px;"><span class="badge-accepted">Accepted</span></div>
+</div>""", unsafe_allow_html=True)
+else:
+    st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No accepted participants yet.</div>', unsafe_allow_html=True)
+
+# ── All participants with status ───────────────────────────────────────────────
+with st.expander(f"All participants ({len(project_rows)} total)", expanded=False):
     if project_rows:
         for r in project_rows:
-            name    = f"{r.get('Name', '').strip()}"
+            name    = r.get("Name", "").strip()
             country = r.get("Country ", r.get("Country", "")).strip()
             city    = r.get("City", "").strip()
             status  = r.get("RSVP status", "").strip()
             loc     = ", ".join(x for x in [city, country] if x)
 
             badge_class = "badge-unknown"
-            if "accepted" in status.lower():
-                badge_class = "badge-accepted"
-            elif "declined" in status.lower():
-                badge_class = "badge-declined"
-            elif "awaiting" in status.lower():
-                badge_class = "badge-awaiting"
+            if "accepted" in status.lower():  badge_class = "badge-accepted"
+            elif "declined" in status.lower(): badge_class = "badge-declined"
+            elif "awaiting" in status.lower(): badge_class = "badge-awaiting"
 
-            status_label = status if status else "Unknown"
             st.markdown(f"""
 <div style="display:flex; align-items:center; justify-content:space-between;
      padding:8px 14px; background:#FAFAFA; border-radius:8px; margin-bottom:6px; border:1px solid #EDF2F7;">
@@ -177,13 +206,42 @@ with left:
     <span style="font-weight:600; font-size:0.92rem; color:#0E2346;">{name}</span>
     <span style="font-size:0.80rem; color:#718096; margin-left:8px;">{loc}</span>
   </div>
-  <span class="{badge_class}">{status_label}</span>
+  <span class="{badge_class}">{status or 'Unknown'}</span>
 </div>""", unsafe_allow_html=True)
     else:
         st.info("No data loaded. Check Google Sheets credentials in secrets.")
 
-with right:
-    st.markdown('<div class="section-header">Form Submissions — Sheet1</div>', unsafe_allow_html=True)
+# ── Interested Speakers ─────────────────────────────────────────────────────────
+st.markdown(f'<div class="section-header">🙋 Interested Speakers ({len(interest_rows)})</div>', unsafe_allow_html=True)
+
+if interest_rows:
+    cols_per_row = 3
+    for i in range(0, len(interest_rows), cols_per_row):
+        chunk = interest_rows[i:i + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for col, r in zip(cols, chunk):
+            name     = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
+            country  = r.get("Country", "").strip()
+            city     = r.get("City", "").strip()
+            identity = r.get("Community Identity", "").strip()
+            topics   = r.get("Topics of Interest", "").strip()
+            evt_types = r.get("Preferred Event Types", "").strip()
+            sub_at   = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
+            loc      = ", ".join(x for x in [city, country] if x)
+            col.markdown(f"""
+<div style="background:#EBF8FF; border:1px solid #BEE3F8; border-radius:10px; padding:16px 18px; margin-bottom:10px;">
+  <div style="font-weight:700; color:#0E2346; font-size:0.95rem; margin-bottom:4px;">{name or 'Anonymous'}</div>
+  {f'<div style="font-size:0.82rem; color:#4A5568;">📍 {loc}</div>' if loc else ''}
+  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">👤 {identity}</div>' if identity else ''}
+  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">🎯 {topics[:80] + "…" if len(topics) > 80 else topics}</div>' if topics else ''}
+  {f'<div style="font-size:0.80rem; color:#718096; margin-top:2px;">🗓 {evt_types}</div>' if evt_types else ''}
+  {f'<div style="font-size:0.78rem; color:#A0AEC0; margin-top:6px;">{sub_at}</div>' if sub_at else ''}
+</div>""", unsafe_allow_html=True)
+else:
+    st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No interest registrations yet.</div>', unsafe_allow_html=True)
+
+# ── Form Submissions ───────────────────────────────────────────────────────────
+with st.expander(f"Form submissions — Sheet1 ({len(submission_rows)} total)", expanded=False):
     if submission_rows:
         for r in submission_rows:
             name  = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
@@ -199,14 +257,6 @@ with right:
 </div>""", unsafe_allow_html=True)
     else:
         st.markdown('<div style="color:#718096; font-size:0.9rem;">No form submissions yet — share the form to get started.</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="section-header">Interest Registrations</div>', unsafe_allow_html=True)
-    if interest_rows:
-        for r in interest_rows:
-            name = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
-            st.markdown(f"<div class='asset-card'><div style='font-weight:600;'>{name}</div><div class='desc'>{r.get('Country','')}</div></div>", unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color:#718096; font-size:0.9rem;">No interest registrations yet.</div>', unsafe_allow_html=True)
 
 
 # ── Budget ─────────────────────────────────────────────────────────────────────
