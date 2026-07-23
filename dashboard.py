@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import requests
+import pandas as pd
 from datetime import datetime
 
 st.set_page_config(
@@ -212,27 +213,17 @@ with left_col:
     else:
         st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No accepted participants yet — update the Overall Project Sheet to add them.</div>', unsafe_allow_html=True)
 
-    # All participants expander
+    # All participants expander — clean table
     with st.expander(f"All participants — {len(project_rows)} total", expanded=False):
-        for r in project_rows:
-            name   = r.get("Name", "").strip()
-            country = r.get("Country ", r.get("Country", "")).strip()
-            city   = r.get("City", "").strip()
-            status = r.get("RSVP status", "").strip()
-            loc    = ", ".join(x for x in [city, country] if x)
-            badge_class = "badge-unknown"
-            if "accepted" in status.lower():   badge_class = "badge-accepted"
-            elif "declined" in status.lower():  badge_class = "badge-declined"
-            elif "awaiting" in status.lower():  badge_class = "badge-awaiting"
-            st.markdown(f"""
-<div style="display:flex; align-items:center; justify-content:space-between;
-     padding:7px 12px; background:#FAFAFA; border-radius:8px; margin-bottom:5px; border:1px solid #EDF2F7;">
-  <div>
-    <span style="font-weight:600; font-size:0.90rem; color:#0E2346;">{name}</span>
-    <span style="font-size:0.79rem; color:#718096; margin-left:8px;">{loc}</span>
-  </div>
-  <span class="{badge_class}">{status or 'Unknown'}</span>
-</div>""", unsafe_allow_html=True)
+        if project_rows:
+            df = pd.DataFrame([{
+                "Name":    r.get("Name", "").strip(),
+                "City":    r.get("City", "").strip(),
+                "Country": r.get("Country ", r.get("Country", "")).strip(),
+                "Status":  r.get("RSVP status", "").strip() or "—",
+                "Notes":   r.get("Notes", "").strip(),
+            } for r in project_rows])
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
 # Right: Form Submissions from Sheet1
 with right_col:
