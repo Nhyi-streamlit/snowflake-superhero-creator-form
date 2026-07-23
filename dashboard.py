@@ -184,71 +184,55 @@ with refresh_col:
         st.cache_data.clear()
         st.rerun()
 
-# ── Accepted + Submissions side by side ───────────────────────────────────────
+# ── Accepted + Submissions as dropdowns ──────────────────────────────────────
 accepted_rows = [r for r in project_rows if "accepted" in r.get("RSVP status", "").lower()]
 
 left_col, right_col = st.columns(2)
 
-# Left: Accepted Participants from Overall Project Sheet
+# Left: Accepted Participants dropdown
 with left_col:
-    st.markdown(f'<div class="section-header">✅ Accepted Participants ({len(accepted_rows)})</div>', unsafe_allow_html=True)
-    if accepted_rows:
-        for r in accepted_rows:
-            name    = r.get("Name", "").strip()
-            country = r.get("Country ", r.get("Country", "")).strip()
-            city    = r.get("City", "").strip()
-            email   = r.get("Email", "").strip()
-            notes   = r.get("Notes", "").strip()
-            loc     = ", ".join(x for x in [city, country] if x)
-            st.markdown(f"""
-<div style="background:#F0FFF4; border:1px solid #C6F6D5; border-radius:10px; padding:14px 16px; margin-bottom:8px;">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-    <div style="font-weight:700; color:#0E2346; font-size:0.93rem;">{name}</div>
-    <span class="badge-accepted">Accepted</span>
-  </div>
-  <div style="font-size:0.82rem; color:#4A5568; margin-top:3px;">📍 {loc}</div>
-  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
-  {f'<div style="font-size:0.79rem; color:#718096; margin-top:3px; font-style:italic;">{notes}</div>' if notes else ''}
-</div>""", unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No accepted participants yet — update the Overall Project Sheet to add them.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">✅ Accepted Participants</div>', unsafe_allow_html=True)
+    with st.expander(f"{len(accepted_rows)} accepted — click to view", expanded=False):
+        if accepted_rows:
+            df_acc = pd.DataFrame([{
+                "Name":    r.get("Name", "").strip(),
+                "City":    r.get("City", "").strip(),
+                "Country": r.get("Country ", r.get("Country", "")).strip(),
+                "Email":   r.get("Email", "").strip(),
+                "Notes":   r.get("Notes", "").strip(),
+            } for r in accepted_rows])
+            st.dataframe(df_acc, use_container_width=True, hide_index=True)
+        else:
+            st.markdown("No accepted participants yet.")
 
-    # All participants expander — clean table
     with st.expander(f"All participants — {len(project_rows)} total", expanded=False):
         if project_rows:
-            df = pd.DataFrame([{
+            df_all = pd.DataFrame([{
                 "Name":    r.get("Name", "").strip(),
                 "City":    r.get("City", "").strip(),
                 "Country": r.get("Country ", r.get("Country", "")).strip(),
                 "Status":  r.get("RSVP status", "").strip() or "—",
                 "Notes":   r.get("Notes", "").strip(),
             } for r in project_rows])
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df_all, use_container_width=True, hide_index=True)
 
-# Right: Form Submissions from Sheet1
+# Right: Form Submissions dropdown
 with right_col:
-    st.markdown(f'<div class="section-header">📋 Form Submissions ({len(submission_rows)})</div>', unsafe_allow_html=True)
-    if submission_rows:
-        for r in submission_rows:
-            name    = f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip()
-            email   = r.get("Email", "").strip()
-            event   = r.get("Event Name", "").strip()
-            country = r.get("Country", "").strip()
-            city    = r.get("City", "").strip()
-            talk    = r.get("Talk Title", "").strip()
-            sub_at  = r.get("Submitted At", "")[:10] if r.get("Submitted At") else ""
-            loc     = ", ".join(x for x in [city, country] if x)
-            st.markdown(f"""
-<div style="background:#FFFAF0; border:1px solid #FEEBC8; border-radius:10px; padding:14px 16px; margin-bottom:8px;">
-  <div style="font-weight:700; color:#0E2346; font-size:0.93rem;">{name or 'Anonymous'}</div>
-  <div style="font-size:0.82rem; color:#4A5568; margin-top:3px;">📍 {loc}</div>
-  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px;">✉️ {email}</div>' if email else ''}
-  {f'<div style="font-size:0.79rem; color:#0E2346; margin-top:3px; font-weight:600;">🎤 {event}</div>' if event else ''}
-  {f'<div style="font-size:0.79rem; color:#718096; margin-top:2px; font-style:italic;">{talk}</div>' if talk else ''}
-  {f'<div style="font-size:0.77rem; color:#A0AEC0; margin-top:5px;">Submitted {sub_at}</div>' if sub_at else ''}
-</div>""", unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color:#718096; font-size:0.9rem; padding:12px 0;">No form submissions yet — share the form to get started.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📋 Form Submissions</div>', unsafe_allow_html=True)
+    with st.expander(f"{len(submission_rows)} submission{'s' if len(submission_rows) != 1 else ''} — click to view", expanded=False):
+        if submission_rows:
+            df_sub = pd.DataFrame([{
+                "Name":      f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip(),
+                "Email":     r.get("Email", "").strip(),
+                "Country":   r.get("Country", "").strip(),
+                "City":      r.get("City", "").strip(),
+                "Event":     r.get("Event Name", "").strip(),
+                "Talk":      r.get("Talk Title", "").strip(),
+                "Submitted": r.get("Submitted At", "")[:10] if r.get("Submitted At") else "",
+            } for r in submission_rows])
+            st.dataframe(df_sub, use_container_width=True, hide_index=True)
+        else:
+            st.markdown("No form submissions yet — share the form to get started.")
 
 # ── Interested Speakers ─────────────────────────────────────────────────────────
 st.markdown(f'<div class="section-header">🙋 Interested Speakers ({len(interest_rows)})</div>', unsafe_allow_html=True)
