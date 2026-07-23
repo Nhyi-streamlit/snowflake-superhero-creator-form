@@ -138,16 +138,18 @@ except Exception:
     _has_creds = False
 
 if not _has_creds:
+    try:
+        missing = [k for k in ["GOOGLE_REFRESH_TOKEN","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","GOOGLE_SPREADSHEET_ID"]
+                   if not st.secrets.get(k, "")]
+    except Exception:
+        missing = ["ALL (no secrets file found)"]
     st.error(
-        "**Missing secrets — dashboard cannot load live data.**\n\n"
-        "Go to your Streamlit Cloud app settings → **Secrets** and add:\n\n"
-        "```\n"
-        "GOOGLE_REFRESH_TOKEN = \"...\"\n"
-        "GOOGLE_CLIENT_ID = \"...\"\n"
-        "GOOGLE_CLIENT_SECRET = \"...\"\n"
-        "GOOGLE_SPREADSHEET_ID = \"1zQlOQYBqyVn9pAFjNQCM0LZleq1VktUmqFbuRq3Je8c\"\n"
-        "```\n\n"
-        "Copy the same values from the main form app's secrets."
+        f"**Missing secrets: {', '.join(missing)}**\n\n"
+        "Make sure you saved these to **this dashboard app** (not the form app) on Streamlit Cloud:\n\n"
+        "1. Go to [share.streamlit.io](https://share.streamlit.io)\n"
+        "2. Find the app whose URL contains `dashboard` → **⋮ → Settings → Secrets**\n"
+        "3. Paste your GOOGLE_REFRESH_TOKEN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and "
+        "GOOGLE_SPREADSHEET_ID values, then click **Save** and wait ~15 seconds for reboot."
     )
 
 
