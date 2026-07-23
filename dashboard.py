@@ -14,7 +14,7 @@ st.set_page_config(
 st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  html, body, [class*="st-"], button, label, p, h1, h2, h3, span, div {
+  body, .main, .block-container, p, h1, h2, h3, li {
     font-family: 'Inter', sans-serif !important;
   }
   [data-testid="collapsedControl"] { display: none; }
