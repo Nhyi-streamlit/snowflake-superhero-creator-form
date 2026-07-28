@@ -239,11 +239,13 @@ def save_interest(data: dict) -> bool:
             data.get("community_identity", ""),
             ", ".join(data.get("topics", [])),
             ", ".join(data.get("event_types", [])),
+            ", ".join(data.get("preferred_cities", [])),
+            ", ".join(data.get("preferred_months", [])),
             data.get("additional_notes", ""),
         ]
         resp = requests.post(
             f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
-            f"/values/Interested%20Speakers!A:K:append",
+            f"/values/Speaker%20Availability!A:M:append",
             params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
             json={"values": [row]},
             headers={"Authorization": f"Bearer {access_token}"},
@@ -441,6 +443,37 @@ with st.form("conference_support_form", clear_on_submit=False):
             key="preferred_event_types_v2",
         )
 
+        LAUNCH_CITIES = [
+            # Americas
+            "Austin, TX", "Boston, MA", "Chicago, IL", "Los Angeles, CA",
+            "Montreal, Canada", "New York, NY", "San Francisco, CA", "Seattle, WA",
+            "São Paulo, Brazil", "Rio de Janeiro, Brazil", "Toronto, Canada", "Vancouver, Canada",
+            # Europe
+            "Amsterdam, Netherlands", "Berlin, Germany", "Edinburgh, UK",
+            "Frankfurt, Germany", "London, UK", "Manchester, UK", "Milan, Italy",
+            "Munich, Germany", "Prague, Czech Republic", "Rome, Italy", "Zagreb, Croatia",
+            # Asia Pacific
+            "Auckland, New Zealand", "Bangalore, India", "Delhi, India",
+            "Hyderabad, India", "Melbourne, Australia", "Mumbai, India",
+            "Osaka, Japan", "Seoul, South Korea", "Sydney, Australia", "Tokyo, Japan",
+            "Wellington, New Zealand",
+        ]
+        preferred_cities = st.multiselect(
+            "Which cities would you be open to speaking in? (select all that apply)",
+            LAUNCH_CITIES,
+            key="preferred_cities",
+        )
+
+        AVAILABLE_MONTHS = [
+            "August 2026", "September 2026", "October 2026", "November 2026", "December 2026",
+            "January 2027", "February 2027", "March 2027", "April 2027", "May 2027", "June 2027",
+        ]
+        preferred_months = st.multiselect(
+            "Which months work best for you? (select all that apply)",
+            AVAILABLE_MONTHS,
+            key="preferred_months",
+        )
+
         add_event_btn = False  # not used in this path
         # safe defaults for talk fields (not shown in this tab)
         talk_title = ""
@@ -460,6 +493,14 @@ with st.form("conference_support_form", clear_on_submit=False):
         preferred_event_types
     except NameError:
         preferred_event_types = []
+    try:
+        preferred_cities
+    except NameError:
+        preferred_cities = []
+    try:
+        preferred_months
+    except NameError:
+        preferred_months = []
 
     # kept in payload for Sheet compatibility
     conference_type = conference_start = conference_end = ""
@@ -548,11 +589,30 @@ with st.form("conference_support_form", clear_on_submit=False):
             "estimated_cost": int(estimated_cost),
             "traveling_from": traveling_from.strip(),
             "preferred_event_types": ", ".join(preferred_event_types),
+            "preferred_cities": ", ".join(preferred_cities),
+            "preferred_months": ", ".join(preferred_months),
             "additional_notes": additional_notes.strip(),
         }
 
         with st.spinner("Submitting…"):
             ok = save_submission(payload)
+            # Also write to Speaker Availability if they filled in cities or months
+            if preferred_cities or preferred_months or preferred_event_types:
+                save_interest({
+                    "submission_id": payload["submission_id"],
+                    "submitted_at": payload["submitted_at"],
+                    "first_name": payload["first_name"],
+                    "last_name": payload["last_name"],
+                    "email": payload["email"],
+                    "country": payload["country"],
+                    "city": payload["city"],
+                    "community_identity": payload["community_identity"],
+                    "topics": snowflake_topics_selected,
+                    "event_types": preferred_event_types,
+                    "preferred_cities": preferred_cities,
+                    "preferred_months": preferred_months,
+                    "additional_notes": payload["additional_notes"],
+                })
 
         if ok:
             st.session_state.submitted = True
