@@ -152,11 +152,9 @@ def save_submission(data: dict) -> bool:
             )
             if append_resp.status_code == 200:
                 return True
-            st.error(f"Sheets write failed ({append_resp.status_code}): {append_resp.text[:200]}")
-            return False
+            st.warning(f"Sheets write failed ({append_resp.status_code}), trying fallback...")
         except Exception as e:
-            st.error(f"Sheets submission error: {e}")
-            return False
+            st.warning(f"Sheets submission error: {e}, trying fallback...")
 
     # ── Fallback: GitHub Issues ────────────────────────────────────────────────
     gh_token = ""
