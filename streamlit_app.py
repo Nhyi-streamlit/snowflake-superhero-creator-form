@@ -144,7 +144,7 @@ def save_submission(data: dict) -> bool:
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
-                f"/values/A%3AV:append",
+                f"/values/A1:append",
                 params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
                 json={"values": [row]},
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -195,7 +195,7 @@ def save_submission(data: dict) -> bool:
     ]
     try:
         requests.post(
-            "https://api.github.com/repos/Nhyi-streamlit/devrel-conference-submissions/issues",
+            "https://api.github.com/repos/Nhyi-streamlit/snowflake-superhero-creator-form/issues",
             json={"title": title, "body": "\n".join(lines), "labels": ["submission"]},
             headers={"Authorization": f"token {gh_token}", "Accept": "application/vnd.github.v3+json"},
             timeout=15,
