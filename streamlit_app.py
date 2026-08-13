@@ -144,7 +144,7 @@ def save_submission(data: dict) -> bool:
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
-                f"/values/A1:append",
+                f"/values/Sheet1!A:U:append",
                 params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
                 json={"values": [row]},
                 headers={"Authorization": f"Bearer {access_token}"},
