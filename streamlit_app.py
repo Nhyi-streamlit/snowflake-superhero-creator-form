@@ -641,15 +641,15 @@ with _nav_apply:
             conference_name = ""
             conference_website = ""
         try:
-            preferred_event_types
+            _ = preferred_event_types
         except NameError:
             preferred_event_types = []
         try:
-            preferred_cities
+            _ = preferred_cities
         except NameError:
             preferred_cities = []
         try:
-            preferred_months
+            _ = preferred_months
         except NameError:
             preferred_months = []
 
