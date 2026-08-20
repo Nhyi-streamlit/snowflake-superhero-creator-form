@@ -139,6 +139,7 @@ def save_submission(data: dict) -> bool:
                 data.get("travel_booked", ""),
                 str(data.get("estimated_cost", 0)),
                 data.get("traveling_from", ""),
+                data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
                 data.get("additional_notes", ""),
             ]
@@ -673,7 +674,11 @@ with _nav_apply:
         with td2:
             return_date = st.date_input("Return date", value=None, help="The date you plan to return home.")
 
-        traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
+        tf1, tf2 = st.columns(2)
+        with tf1:
+            traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
+        with tf2:
+            traveling_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States")
 
         travel_booked = st.radio(
             "Travel status",
@@ -736,6 +741,7 @@ with _nav_apply:
                 "travel_booked": travel_booked,
                 "estimated_cost": int(estimated_cost),
                 "traveling_from": traveling_from.strip(),
+                "traveling_to": traveling_to.strip(),
                 "support_rank_1": "",
                 "support_rank_2": "",
                 "support_rank_3": "",
