@@ -136,8 +136,6 @@ def save_submission(data: dict) -> bool:
                 ", ".join(data.get("snowflake_topics", [])),
                 data.get("departure_date", ""),
                 data.get("return_date", ""),
-                data.get("travel_booked", ""),
-                str(data.get("estimated_cost", 0)),
                 data.get("traveling_from", ""),
                 data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
