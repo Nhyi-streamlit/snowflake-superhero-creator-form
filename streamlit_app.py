@@ -680,17 +680,9 @@ with _nav_apply:
         with tf2:
             traveling_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States")
 
-        travel_booked = st.radio(
-            "Travel status",
-            ["Not yet booked", "In progress / researching options", "Fully booked"],
-            horizontal=True,
-        )
-
-        estimated_cost = st.number_input(
-            "Estimated travel cost (USD)",
-            min_value=0, max_value=25000, step=50, value=500,
-            help="Rough estimate — flights + hotel if applicable.",
-        )
+        # safe defaults for removed fields
+        travel_booked = ""
+        estimated_cost = 0
 
         # safe defaults for removed support fields
         support_rank_1 = support_rank_2 = support_rank_3 = ""
@@ -738,8 +730,8 @@ with _nav_apply:
                 "snowflake_topics": snowflake_topics_selected,
                 "departure_date": str(departure_date) if departure_date else "",
                 "return_date": str(return_date) if return_date else "",
-                "travel_booked": travel_booked,
-                "estimated_cost": int(estimated_cost),
+                "travel_booked": "",
+                "estimated_cost": 0,
                 "traveling_from": traveling_from.strip(),
                 "traveling_to": traveling_to.strip(),
                 "support_rank_1": "",
