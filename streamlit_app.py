@@ -140,6 +140,8 @@ def save_submission(data: dict) -> bool:
                 data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
                 data.get("additional_notes", ""),
+                data.get("swag_request", ""),
+                data.get("swag_details", ""),
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
@@ -310,6 +312,8 @@ if "interest_submitted" not in st.session_state:
     st.session_state.interest_submitted = False
 if "num_events" not in st.session_state:
     st.session_state.num_events = 1
+if "num_trips" not in st.session_state:
+    st.session_state.num_trips = 1
 if "content_submitted" not in st.session_state:
     st.session_state.content_submitted = False
 
@@ -317,6 +321,11 @@ if "content_submitted" not in st.session_state:
 def _add_event():
     """Callback for the 'Add another event' button (runs before the rerun)."""
     st.session_state.num_events += 1
+
+
+def _add_trip():
+    """Callback for the 'Add another trip' button (runs before the rerun)."""
+    st.session_state.num_trips += 1
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
@@ -668,17 +677,51 @@ with _nav_apply:
         st.markdown('<p class="section-title">Travel Dates</p>', unsafe_allow_html=True)
         st.markdown('<p class="section-hint">Help us plan support around your travel schedule.</p>', unsafe_allow_html=True)
 
-        td1, td2 = st.columns(2)
-        with td1:
-            departure_date = st.date_input("Departure date", value=None, help="The date you plan to leave for the event.")
-        with td2:
-            return_date = st.date_input("Return date", value=None, help="The date you plan to return home.")
+        departure_dates = []
+        return_dates = []
+        for t in range(st.session_state.num_trips):
+            trip_label = f"Trip {t + 1}" if st.session_state.num_trips > 1 else ""
+            td1, td2 = st.columns(2)
+            with td1:
+                d = st.date_input(
+                    f"{trip_label} departure date".strip(),
+                    value=None,
+                    key=f"departure_date_{t}",
+                    help="The date you plan to leave for the event." if t == 0 else None,
+                )
+            with td2:
+                r = st.date_input(
+                    f"{trip_label} return date".strip(),
+                    value=None,
+                    key=f"return_date_{t}",
+                    help="The date you plan to return home." if t == 0 else None,
+                )
+            departure_dates.append(d)
+            return_dates.append(r)
+
+        st.form_submit_button("＋ Add another trip", type="secondary", on_click=_add_trip)
+
+        departure_date = " | ".join(str(d) for d in departure_dates if d)
+        return_date = " | ".join(str(r) for r in return_dates if r)
 
         tf1, tf2 = st.columns(2)
         with tf1:
             traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
         with tf2:
             traveling_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States")
+
+        st.markdown('<p class="section-title" style="margin-top:16px;">Swag</p>', unsafe_allow_html=True)
+        swag_needed = st.radio(
+            "Would you like Snowflake swag shipped to the event?",
+            ["No, thanks", "Yes, please ship swag"],
+            key="swag_needed",
+        )
+        swag_details = st.text_area(
+            "Shipping details (if yes)",
+            placeholder="Ship-to address, contact name & phone, anything specific you'd like (stickers, t-shirts, banners, etc.)",
+            height=80,
+            key="swag_details",
+        )
 
         # safe defaults for removed fields
         travel_booked = ""
@@ -724,8 +767,8 @@ with _nav_apply:
                 "talk_title": talk_title.strip(),
                 "session_type": session_type if session_type != "— select —" else "",
                 "snowflake_topics": snowflake_topics_selected,
-                "departure_date": str(departure_date) if departure_date else "",
-                "return_date": str(return_date) if return_date else "",
+                "departure_date": departure_date,
+                "return_date": return_date,
                 "travel_booked": "",
                 "estimated_cost": 0,
                 "traveling_from": traveling_from.strip(),
@@ -737,6 +780,8 @@ with _nav_apply:
                 "preferred_cities": ", ".join(preferred_cities),
                 "preferred_months": ", ".join(preferred_months),
                 "additional_notes": additional_notes.strip(),
+                "swag_request": "Yes" if swag_needed.startswith("Yes") else "No",
+                "swag_details": swag_details.strip() if swag_needed.startswith("Yes") else "",
             }
 
             with st.spinner("Submitting…"):
