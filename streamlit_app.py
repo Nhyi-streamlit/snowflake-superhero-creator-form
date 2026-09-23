@@ -681,8 +681,12 @@ with _nav_apply:
 
         departure_dates = []
         return_dates = []
+        traveling_froms = []
+        traveling_tos = []
         for t in range(st.session_state.num_trips):
             trip_label = f"Trip {t + 1}" if st.session_state.num_trips > 1 else ""
+            if st.session_state.num_trips > 1:
+                st.markdown(f'<p class="section-hint" style="margin-top:10px;"><b>{trip_label}</b></p>', unsafe_allow_html=True)
             td1, td2 = st.columns(2)
             with td1:
                 d = st.date_input(
@@ -698,19 +702,30 @@ with _nav_apply:
                     key=f"return_date_{t}",
                     help="The date you plan to return home." if t == 0 else None,
                 )
+            tf1, tf2 = st.columns(2)
+            with tf1:
+                vf = st.text_input(
+                    f"{trip_label} traveling from (city, country)".strip(),
+                    placeholder="Lagos, Nigeria",
+                    key=f"traveling_from_{t}",
+                )
+            with tf2:
+                vt = st.text_input(
+                    f"{trip_label} traveling to (city, country)".strip(),
+                    placeholder="San Francisco, United States",
+                    key=f"traveling_to_{t}",
+                )
             departure_dates.append(d)
             return_dates.append(r)
+            traveling_froms.append(vf)
+            traveling_tos.append(vt)
 
         st.form_submit_button("＋ Add another trip", type="secondary", on_click=_add_trip)
 
         departure_date = " | ".join(str(d) for d in departure_dates if d)
         return_date = " | ".join(str(r) for r in return_dates if r)
-
-        tf1, tf2 = st.columns(2)
-        with tf1:
-            traveling_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria")
-        with tf2:
-            traveling_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States")
+        traveling_from = " | ".join(f for f in traveling_froms if f.strip())
+        traveling_to = " | ".join(t for t in traveling_tos if t.strip())
 
         st.markdown('<p class="section-title" style="margin-top:16px;">Swag</p>', unsafe_allow_html=True)
         swag_needed = st.radio(
