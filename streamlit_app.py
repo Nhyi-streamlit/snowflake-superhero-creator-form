@@ -142,6 +142,8 @@ def save_submission(data: dict) -> bool:
                 data.get("additional_notes", ""),
                 data.get("swag_request", ""),
                 data.get("swag_details", ""),
+                # internal tracking columns (Flight / Hotel / Ground Transport Booked)
+                "", "", "",
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
