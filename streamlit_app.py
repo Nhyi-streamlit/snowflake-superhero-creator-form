@@ -314,6 +314,11 @@ if "content_submitted" not in st.session_state:
     st.session_state.content_submitted = False
 
 
+def _add_event():
+    """Callback for the 'Add another event' button (runs before the rerun)."""
+    st.session_state.num_events += 1
+
+
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="page-hero">
@@ -553,7 +558,7 @@ with _nav_apply:
                     elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
                 event_entries.append((ename, elink))
 
-            add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+            st.form_submit_button("＋ Add another event", type="secondary", on_click=_add_event)
 
             st.divider()
 
@@ -625,8 +630,7 @@ with _nav_apply:
                 key="preferred_months",
             )
 
-            add_event_btn = False  # not used in this path
-            # safe defaults for talk fields (not shown in this tab)
+            # not used in this path
             talk_title = ""
             session_type = "— select —"
             snowflake_topics_selected = []
@@ -704,10 +708,6 @@ with _nav_apply:
             )
 
         # ── Handlers ──────────────────────────────────────────────────────────────
-        if add_event_btn:
-            st.session_state.num_events += 1
-            st.rerun()
-
         if submitted:
             payload = {
                 "submission_id": str(uuid.uuid4()),
