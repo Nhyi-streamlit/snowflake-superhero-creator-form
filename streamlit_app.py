@@ -140,10 +140,6 @@ def save_submission(data: dict) -> bool:
                 data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
                 data.get("additional_notes", ""),
-                data.get("swag_request", ""),
-                data.get("swag_details", ""),
-                # internal tracking columns (Flight / Hotel / Ground Transport Booked)
-                "", "", "",
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
@@ -314,20 +310,10 @@ if "interest_submitted" not in st.session_state:
     st.session_state.interest_submitted = False
 if "num_events" not in st.session_state:
     st.session_state.num_events = 1
-if "num_trips" not in st.session_state:
-    st.session_state.num_trips = 1
+if "num_travels" not in st.session_state:
+    st.session_state.num_travels = 1
 if "content_submitted" not in st.session_state:
     st.session_state.content_submitted = False
-
-
-def _add_event():
-    """Callback for the 'Add another event' button (runs before the rerun)."""
-    st.session_state.num_events += 1
-
-
-def _add_trip():
-    """Callback for the 'Add another trip' button (runs before the rerun)."""
-    st.session_state.num_trips += 1
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
@@ -516,12 +502,12 @@ with _nav_apply:
 
         a1, a2 = st.columns(2)
         with a1:
-            first_name = st.text_input("First name", placeholder="Aba")
-            country    = st.selectbox("Country", ["— select —"] + COUNTRIES)
-            email      = st.text_input("Email address", placeholder="you@example.com")
+            first_name = st.text_input("First name", placeholder="Aba", key="first_name")
+            country    = st.selectbox("Country", ["— select —"] + COUNTRIES, key="country")
+            email      = st.text_input("Email address", placeholder="you@example.com", key="email")
         with a2:
-            last_name = st.text_input("Last name", placeholder="Micah")
-            city      = st.text_input("City", placeholder="San Francisco")
+            last_name = st.text_input("Last name", placeholder="Micah", key="last_name")
+            city      = st.text_input("City", placeholder="San Francisco", key="city")
 
         # removed fields — kept as empty strings for payload compatibility
         company = ""
@@ -539,12 +525,14 @@ with _nav_apply:
             "I am a... (select all that apply)",
             ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
             placeholder="Select your community identity",
+            key="community_identity",
         )
 
         years_snowflake = st.select_slider(
             "Years working with Snowflake",
             options=["< 6 months", "6–12 months", "1–2 years", "2–4 years", "4+ years"],
             value="1–2 years",
+            key="years_snowflake",
         )
 
         st.divider()
@@ -552,6 +540,15 @@ with _nav_apply:
         # ── Section 3: Event or Interest ──────────────────────────────────────────
         st.markdown('<span class="step-label">Section 3 of 5</span>', unsafe_allow_html=True)
         st.markdown('<p class="section-title">Are you heading to an event, or looking to speak?</p>', unsafe_allow_html=True)
+
+        # Defaults for variables before tabs execute
+        talk_title = ""
+        session_type = "— select —"
+        snowflake_topics_selected = []
+        talk_abstract = ""
+        acceptance_status = ""
+        add_event_btn = False
+        remove_event_btn = False
 
         s3_event, s3_interest = st.tabs(["📅  I have an event and I'm looking for support", "🙋  I don't have an event but I want to speak"])
 
@@ -569,7 +566,12 @@ with _nav_apply:
                     elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
                 event_entries.append((ename, elink))
 
-            st.form_submit_button("＋ Add another event", type="secondary", on_click=_add_event)
+            col_add_ev, col_rem_ev, _ = st.columns([1.3, 1.3, 2.4])
+            with col_add_ev:
+                add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+            with col_rem_ev:
+                if st.session_state.num_events > 1:
+                    remove_event_btn = st.form_submit_button("－ Remove event", type="secondary")
 
             st.divider()
 
@@ -581,6 +583,7 @@ with _nav_apply:
             talk_title = st.text_input(
                 "Talk / session title",
                 placeholder="Building Production AI Agents on Snowflake",
+                key="talk_title",
             )
 
             sr_c1, sr_c2 = st.columns(2)
@@ -589,15 +592,14 @@ with _nav_apply:
                     "Session type",
                     ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
                      "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
+                    key="session_type",
                 )
-                acceptance_status = ""
             with sr_c2:
                 snowflake_topics_selected = st.multiselect(
                     "Snowflake topics you'll cover (or want to speak about)",
                     SNOWFLAKE_TOPICS,
+                    key="snowflake_topics_selected",
                 )
-
-            talk_abstract = ""
 
         with s3_interest:
             st.markdown('<p class="section-title" style="margin-top:16px;">Interested in speaking but no event lined up yet?</p>', unsafe_allow_html=True)
@@ -641,13 +643,6 @@ with _nav_apply:
                 key="preferred_months",
             )
 
-            # not used in this path
-            talk_title = ""
-            session_type = "— select —"
-            snowflake_topics_selected = []
-            talk_abstract = ""
-            acceptance_status = ""
-
         # ── Compute event payload values (safe defaults if interest tab used) ──────
         try:
             conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
@@ -677,68 +672,41 @@ with _nav_apply:
         # ── Section 5: Travel Dates ───────────────────────────────────────────────
         st.markdown('<span class="step-label">Section 5 of 5</span>', unsafe_allow_html=True)
         st.markdown('<p class="section-title">Travel Dates</p>', unsafe_allow_html=True)
-        st.markdown('<p class="section-hint">Help us plan support around your travel schedule.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Help us plan support around your travel schedule. You can add multiple trips or travel dates if needed.</p>', unsafe_allow_html=True)
 
-        departure_dates = []
-        return_dates = []
-        traveling_froms = []
-        traveling_tos = []
-        for t in range(st.session_state.num_trips):
-            trip_label = f"Trip {t + 1}" if st.session_state.num_trips > 1 else ""
-            if st.session_state.num_trips > 1:
-                st.markdown(f'<p class="section-hint" style="margin-top:10px;"><b>{trip_label}</b></p>', unsafe_allow_html=True)
+        add_travel_btn = False
+        remove_travel_btn = False
+        travel_entries = []
+        for j in range(st.session_state.num_travels):
+            t_label = f"Trip / Travel Leg {j + 1}" if st.session_state.num_travels > 1 else "Travel Details"
+            if st.session_state.num_travels > 1:
+                st.markdown(f'<p style="font-weight:600; color:#0E2346; margin-top:12px; margin-bottom:6px;">{t_label}</p>', unsafe_allow_html=True)
+
             td1, td2 = st.columns(2)
             with td1:
-                d = st.date_input(
-                    f"{trip_label} departure date".strip(),
-                    value=None,
-                    key=f"departure_date_{t}",
-                    help="The date you plan to leave for the event." if t == 0 else None,
-                )
+                dep_date = st.date_input("Departure date", value=None, help="The date you plan to leave for the event.", key=f"departure_date_{j}")
             with td2:
-                r = st.date_input(
-                    f"{trip_label} return date".strip(),
-                    value=None,
-                    key=f"return_date_{t}",
-                    help="The date you plan to return home." if t == 0 else None,
-                )
+                ret_date = st.date_input("Return date", value=None, help="The date you plan to return home.", key=f"return_date_{j}")
+
             tf1, tf2 = st.columns(2)
             with tf1:
-                vf = st.text_input(
-                    f"{trip_label} traveling from (city, country)".strip(),
-                    placeholder="Lagos, Nigeria",
-                    key=f"traveling_from_{t}",
-                )
+                t_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria", key=f"traveling_from_{j}")
             with tf2:
-                vt = st.text_input(
-                    f"{trip_label} traveling to (city, country)".strip(),
-                    placeholder="San Francisco, United States",
-                    key=f"traveling_to_{t}",
-                )
-            departure_dates.append(d)
-            return_dates.append(r)
-            traveling_froms.append(vf)
-            traveling_tos.append(vt)
+                t_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States", key=f"traveling_to_{j}")
 
-        st.form_submit_button("＋ Add another trip", type="secondary", on_click=_add_trip)
+            travel_entries.append((dep_date, ret_date, t_from, t_to))
 
-        departure_date = " | ".join(str(d) for d in departure_dates if d)
-        return_date = " | ".join(str(r) for r in return_dates if r)
-        traveling_from = " | ".join(f for f in traveling_froms if f.strip())
-        traveling_to = " | ".join(t for t in traveling_tos if t.strip())
+        col_add_tr, col_rem_tr, _ = st.columns([1.3, 1.3, 2.4])
+        with col_add_tr:
+            add_travel_btn = st.form_submit_button("＋ Add another travel date", type="secondary")
+        with col_rem_tr:
+            if st.session_state.num_travels > 1:
+                remove_travel_btn = st.form_submit_button("－ Remove travel date", type="secondary")
 
-        st.markdown('<p class="section-title" style="margin-top:16px;">Swag</p>', unsafe_allow_html=True)
-        swag_needed = st.radio(
-            "Would you like Snowflake swag shipped to the event?",
-            ["No, thanks", "Yes, please ship swag"],
-            key="swag_needed",
-        )
-        swag_details = st.text_area(
-            "Shipping details (if yes)",
-            placeholder="Ship-to address, contact name & phone, anything specific you'd like (stickers, t-shirts, banners, etc.)",
-            height=80,
-            key="swag_details",
-        )
+        departure_date_str = " | ".join(str(t[0]) for t in travel_entries if t[0] is not None)
+        return_date_str = " | ".join(str(t[1]) for t in travel_entries if t[1] is not None)
+        traveling_from_str = " | ".join(t[2].strip() for t in travel_entries if t[2].strip())
+        traveling_to_str = " | ".join(t[3].strip() for t in travel_entries if t[3].strip())
 
         # safe defaults for removed fields
         travel_booked = ""
@@ -752,6 +720,7 @@ with _nav_apply:
             "Anything else you'd like us to know?",
             placeholder="Additional context, timing constraints, co-presenters, past Snowflake Community interactions, etc.",
             height=100,
+            key="additional_notes",
         )
 
         st.markdown("")
@@ -768,6 +737,28 @@ with _nav_apply:
             )
 
         # ── Handlers ──────────────────────────────────────────────────────────────
+        if add_event_btn:
+            st.session_state.num_events += 1
+            st.rerun()
+
+        if remove_event_btn and st.session_state.num_events > 1:
+            st.session_state.pop(f"event_name_{st.session_state.num_events - 1}", None)
+            st.session_state.pop(f"event_link_{st.session_state.num_events - 1}", None)
+            st.session_state.num_events -= 1
+            st.rerun()
+
+        if add_travel_btn:
+            st.session_state.num_travels += 1
+            st.rerun()
+
+        if remove_travel_btn and st.session_state.num_travels > 1:
+            st.session_state.pop(f"departure_date_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"return_date_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"traveling_from_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"traveling_to_{st.session_state.num_travels - 1}", None)
+            st.session_state.num_travels -= 1
+            st.rerun()
+
         if submitted:
             payload = {
                 "submission_id": str(uuid.uuid4()),
@@ -784,12 +775,12 @@ with _nav_apply:
                 "talk_title": talk_title.strip(),
                 "session_type": session_type if session_type != "— select —" else "",
                 "snowflake_topics": snowflake_topics_selected,
-                "departure_date": departure_date,
-                "return_date": return_date,
+                "departure_date": departure_date_str,
+                "return_date": return_date_str,
                 "travel_booked": "",
                 "estimated_cost": 0,
-                "traveling_from": traveling_from.strip(),
-                "traveling_to": traveling_to.strip(),
+                "traveling_from": traveling_from_str,
+                "traveling_to": traveling_to_str,
                 "support_rank_1": "",
                 "support_rank_2": "",
                 "support_rank_3": "",
@@ -797,8 +788,6 @@ with _nav_apply:
                 "preferred_cities": ", ".join(preferred_cities),
                 "preferred_months": ", ".join(preferred_months),
                 "additional_notes": additional_notes.strip(),
-                "swag_request": "Yes" if swag_needed.startswith("Yes") else "No",
-                "swag_details": swag_details.strip() if swag_needed.startswith("Yes") else "",
             }
 
             with st.spinner("Submitting…"):
