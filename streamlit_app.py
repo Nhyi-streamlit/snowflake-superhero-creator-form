@@ -140,6 +140,8 @@ def save_submission(data: dict) -> bool:
                 data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
                 data.get("additional_notes", ""),
+                # U–Y are internal tracking columns (swag + bookings) filled by the team
+                "", "", "", "", "",
                 data.get("travel_modes", ""),
             ]
             append_resp = requests.post(
