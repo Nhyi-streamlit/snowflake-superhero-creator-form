@@ -140,6 +140,7 @@ def save_submission(data: dict) -> bool:
                 data.get("traveling_to", ""),
                 data.get("preferred_event_types", ""),
                 data.get("additional_notes", ""),
+                data.get("travel_modes", ""),
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
@@ -191,6 +192,7 @@ def save_submission(data: dict) -> bool:
         f"- **Talk Title:** {data.get('talk_title', '')}",
         f"- **Support Requested:** {', '.join(data.get('support_types', []))}",
         f"- **Est. Travel Cost (USD):** {data.get('estimated_cost', 0)}",
+        f"- **Preferred Travel Mode:** {data.get('travel_modes', '')}",
     ]
     try:
         requests.post(
@@ -694,7 +696,14 @@ with _nav_apply:
             with tf2:
                 t_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States", key=f"traveling_to_{j}")
 
-            travel_entries.append((dep_date, ret_date, t_from, t_to))
+            t_mode = st.selectbox(
+                "Preferred mode of travel",
+                ["— select —", "Flight", "Train", "Bus", "Car / rideshare", "No travel needed (local)"],
+                help="How you'd prefer to get there for this trip.",
+                key=f"travel_mode_{j}",
+            )
+
+            travel_entries.append((dep_date, ret_date, t_from, t_to, t_mode))
 
         col_add_tr, col_rem_tr, _ = st.columns([1.3, 1.3, 2.4])
         with col_add_tr:
@@ -707,6 +716,7 @@ with _nav_apply:
         return_date_str = " | ".join(str(t[1]) for t in travel_entries if t[1] is not None)
         traveling_from_str = " | ".join(t[2].strip() for t in travel_entries if t[2].strip())
         traveling_to_str = " | ".join(t[3].strip() for t in travel_entries if t[3].strip())
+        travel_modes_str = " | ".join(t[4] for t in travel_entries if t[4] != "— select —")
 
         # safe defaults for removed fields
         travel_booked = ""
@@ -756,6 +766,7 @@ with _nav_apply:
             st.session_state.pop(f"return_date_{st.session_state.num_travels - 1}", None)
             st.session_state.pop(f"traveling_from_{st.session_state.num_travels - 1}", None)
             st.session_state.pop(f"traveling_to_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"travel_mode_{st.session_state.num_travels - 1}", None)
             st.session_state.num_travels -= 1
             st.rerun()
 
@@ -781,6 +792,7 @@ with _nav_apply:
                 "estimated_cost": 0,
                 "traveling_from": traveling_from_str,
                 "traveling_to": traveling_to_str,
+                "travel_modes": travel_modes_str,
                 "support_rank_1": "",
                 "support_rank_2": "",
                 "support_rank_3": "",
