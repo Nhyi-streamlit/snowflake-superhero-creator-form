@@ -1,0 +1,865 @@
+import os
+import uuid
+from datetime import datetime
+
+import streamlit as st
+
+st.set_page_config(
+    page_title="Snowflake Community Voices",
+    page_icon="❄️",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+st.markdown("""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  html, body, [class*="st-"], .stTextInput input, .stSelectbox, .stMultiSelect,
+  .stTextArea textarea, .stNumberInput input, .stRadio label, .stSlider,
+  button, label, p, h1, h2, h3, span, div {
+    font-family: 'Inter', sans-serif !important;
+  }
+
+  [data-testid="collapsedControl"] { display: none; }
+  section[data-testid="stSidebar"] { display: none; }
+
+  .page-hero {
+    background: #29B5E8;
+    padding: 48px 56px;
+    border-radius: 16px;
+    margin-bottom: 40px;
+  }
+  .page-hero .eyebrow {
+    display: inline-block;
+    background: rgba(41,181,232,0.25);
+    color: #7ED8F6;
+    border: 1px solid rgba(41,181,232,0.4);
+    border-radius: 20px;
+    padding: 3px 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .page-hero h1 { color: #FFFFFF; font-size: 2.1rem; font-weight: 800; line-height: 1.2; margin-bottom: 10px; }
+  .page-hero p  { color: #A8D8F0; font-size: 1rem; max-width: 640px; margin: 0; }
+
+  .step-label {
+    display: inline-block;
+    background: #EBF8FF;
+    color: #29B5E8;
+    border: 1px solid #BEE3F8;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #0E2346;
+    margin-top: 2px;
+    margin-bottom: 2px;
+  }
+  .section-hint { font-size: 0.87rem; color: #718096; margin-bottom: 18px; }
+
+  .success-box {
+    background: linear-gradient(135deg, #0E2346, #1B3A6B);
+    border-radius: 16px;
+    padding: 72px 48px;
+    text-align: center;
+  }
+  .success-box h2 { color: #FFFFFF; font-size: 2rem; font-weight: 800; margin-bottom: 10px; }
+  .success-box p  { color: #A8D8F0; font-size: 1rem; margin-bottom: 0; }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── Snowflake writer ──────────────────────────────────────────────────────────
+
+def _get_sheets_access_token(refresh_token: str, client_id: str, client_secret: str) -> str:
+    """Exchange refresh token for a fresh access token."""
+    import requests
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+def save_submission(data: dict) -> bool:
+    """Append form submission as a row to Google Sheets, with GitHub Issues as fallback."""
+    import requests
+
+    # ── Primary: Google Sheets ─────────────────────────────────────────────────
+    refresh_token = client_id = client_secret = spreadsheet_id = ""
+    try:
+        refresh_token  = st.secrets.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = st.secrets.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = st.secrets.get("GOOGLE_SPREADSHEET_ID", "")
+    except Exception:
+        refresh_token  = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+    if all([refresh_token, client_id, client_secret, spreadsheet_id]):
+        try:
+            access_token = _get_sheets_access_token(refresh_token, client_id, client_secret)
+            row = [
+                data.get("submission_id", ""),
+                data.get("submitted_at", ""),
+                data.get("first_name", ""),
+                data.get("last_name", ""),
+                data.get("email", ""),
+                data.get("country", ""),
+                data.get("city", ""),
+                data.get("community_identity", ""),
+                str(data.get("years_snowflake", "")),
+                data.get("conference_name", ""),
+                data.get("conference_website", ""),
+                data.get("talk_title", ""),
+                data.get("session_type", ""),
+                ", ".join(data.get("snowflake_topics", [])),
+                data.get("departure_date", ""),
+                data.get("return_date", ""),
+                data.get("traveling_from", ""),
+                data.get("traveling_to", ""),
+                data.get("preferred_event_types", ""),
+                data.get("additional_notes", ""),
+                # U–Y are internal tracking columns (swag + bookings) filled by the team
+                "", "", "", "", "",
+                data.get("travel_modes", ""),
+                ", ".join(data.get("support_types", [])),
+                data.get("support_details", ""),
+            ]
+            append_resp = requests.post(
+                f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
+                f"/values/Filled%20Form!A1:append",
+                params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
+                json={"values": [row]},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15,
+            )
+            if append_resp.status_code == 200:
+                return True
+            st.warning(f"Sheets write failed ({append_resp.status_code}), trying fallback...")
+        except Exception as e:
+            st.warning(f"Sheets submission error: {e}, trying fallback...")
+
+    # ── Fallback: GitHub Issues ────────────────────────────────────────────────
+    gh_token = ""
+    try:
+        gh_token = st.secrets.get("GITHUB_SUBMISSIONS_TOKEN", "")
+    except Exception:
+        gh_token = os.environ.get("GITHUB_SUBMISSIONS_TOKEN", "")
+
+    if not gh_token:
+        st.error("No submission backend configured. Please contact the program team.")
+        return False
+
+    title = (
+        f"[Form] {data['first_name']} {data['last_name']} "
+        f"— {data.get('conference_name', 'Event TBD')}"
+    )
+    lines = [
+        f"**Submission ID:** {data['submission_id']}",
+        f"**Submitted At:** {data['submitted_at']}",
+        "", "## Contact",
+        f"- **Name:** {data['first_name']} {data['last_name']}",
+        f"- **Email:** {data['email']}",
+        f"- **Job Title:** {data.get('job_title', '')}",
+        f"- **Company:** {data.get('company', '')}",
+        f"- **Country:** {data.get('country', '')}",
+        f"- **LinkedIn:** {data.get('linkedin_url', '')}",
+        "", "## Community Identity",
+        f"- **Identity:** {data.get('community_identity', '')}",
+        f"- **Years with Snowflake:** {data.get('years_snowflake', '')}",
+        "", "## Conference",
+        f"- **Event:** {data.get('conference_name', '')}",
+        f"- **Dates:** {data.get('conference_start', '')} → {data.get('conference_end', '')}",
+        f"- **Location:** {data.get('conference_city', '')}, {data.get('conference_country', '')}",
+        "", "## Talk & Support",
+        f"- **Talk Title:** {data.get('talk_title', '')}",
+        f"- **Support Requested:** {', '.join(data.get('support_types', []))}",
+        f"- **Support Details:** {data.get('support_details', '')}",
+        f"- **Est. Travel Cost (USD):** {data.get('estimated_cost', 0)}",
+        f"- **Preferred Travel Mode:** {data.get('travel_modes', '')}",
+    ]
+    try:
+        requests.post(
+            "https://api.github.com/repos/Nhyi-streamlit/snowflake-superhero-creator-form/issues",
+            json={"title": title, "body": "\n".join(lines), "labels": ["submission"]},
+            headers={"Authorization": f"token {gh_token}", "Accept": "application/vnd.github.v3+json"},
+            timeout=15,
+        )
+        return True
+    except Exception:
+        return False
+
+def save_interest(data: dict) -> bool:
+    """Append interest registration to the 'Interested Speakers' sheet tab."""
+    import requests
+
+    refresh_token = client_id = client_secret = spreadsheet_id = ""
+    try:
+        refresh_token  = st.secrets.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = st.secrets.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = st.secrets.get("GOOGLE_SPREADSHEET_ID", "")
+    except Exception:
+        refresh_token  = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+    if not all([refresh_token, client_id, client_secret, spreadsheet_id]):
+        st.error("Submission backend not configured.")
+        return False
+
+    try:
+        access_token = _get_sheets_access_token(refresh_token, client_id, client_secret)
+        row = [
+            data.get("submission_id", ""),
+            data.get("submitted_at", ""),
+            data.get("first_name", ""),
+            data.get("last_name", ""),
+            data.get("email", ""),
+            data.get("country", ""),
+            data.get("city", ""),
+            data.get("community_identity", ""),
+            ", ".join(data.get("topics", [])),
+            ", ".join(data.get("event_types", [])),
+            ", ".join(data.get("preferred_cities", [])),
+            ", ".join(data.get("preferred_months", [])),
+            data.get("additional_notes", ""),
+        ]
+        resp = requests.post(
+            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
+            f"/values/Speaker%20Availability!A:M:append",
+            params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
+            json={"values": [row]},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=15,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        st.error(f"Submission error: {e}")
+        return False
+
+
+def save_content(data: dict) -> bool:
+    """Append speaker content to the 'Speaker Content' sheet tab."""
+    import requests
+    refresh_token = client_id = client_secret = spreadsheet_id = ""
+    try:
+        refresh_token  = st.secrets.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = st.secrets.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = st.secrets.get("GOOGLE_SPREADSHEET_ID", "")
+    except Exception:
+        refresh_token  = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+        client_id      = os.environ.get("GOOGLE_CLIENT_ID", "")
+        client_secret  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+        spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "")
+
+    if not all([refresh_token, client_id, client_secret, spreadsheet_id]):
+        st.error("Submission backend not configured.")
+        return False
+
+    try:
+        access_token = _get_sheets_access_token(refresh_token, client_id, client_secret)
+        row = [
+            data.get("submission_id", ""),
+            data.get("submitted_at", ""),
+            data.get("first_name", ""),
+            data.get("last_name", ""),
+            data.get("email", ""),
+            data.get("talk_title", ""),
+            data.get("abstract", ""),
+            data.get("takeaway_1", ""),
+            data.get("takeaway_2", ""),
+            data.get("takeaway_3", ""),
+            data.get("audience_level", ""),
+            data.get("demo_included", ""),
+            data.get("slides_ready", ""),
+            data.get("snowflake_products", ""),
+            data.get("notes", ""),
+        ]
+        resp = requests.post(
+            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
+            f"/values/Speaker%20Content!A:O:append",
+            params={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
+            json={"values": [row]},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=15,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        st.error(f"Submission error: {e}")
+        return False
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+if "interest_submitted" not in st.session_state:
+    st.session_state.interest_submitted = False
+if "num_events" not in st.session_state:
+    st.session_state.num_events = 1
+if "num_travels" not in st.session_state:
+    st.session_state.num_travels = 1
+if "content_submitted" not in st.session_state:
+    st.session_state.content_submitted = False
+
+
+# ── Hero ──────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="page-hero">
+  <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Snowflake_Logo.svg"
+         alt="Snowflake" height="36"
+         style="filter:brightness(0) invert(1); flex-shrink:0;">
+    <div class="eyebrow" style="margin-bottom:0;">Snowflake Community Voices · Community Support</div>
+  </div>
+  <h1>Snowflake Community Voices</h1>
+  <p>We want to amplify the voices of our Data Superheroes and Streamlit Creators.
+  Whether you have an event lined up or just want to get on a stage — we'd love to hear from you.</p>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+COUNTRIES = [
+    "Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia",
+    "Austria","Azerbaijan","Bahrain","Bangladesh","Belarus","Belgium","Bolivia","Bosnia",
+    "Brazil","Bulgaria","Cambodia","Canada","Chile","China","Colombia","Costa Rica","Croatia",
+    "Czech Republic","Denmark","Ecuador","Egypt","Estonia","Ethiopia","Finland","France",
+    "Georgia","Germany","Ghana","Greece","Guatemala","Honduras","Hungary","India","Indonesia",
+    "Iran","Iraq","Ireland","Israel","Italy","Japan","Jordan","Kazakhstan","Kenya","Kosovo",
+    "Latvia","Lebanon","Lithuania","Luxembourg","Malaysia","Mexico","Moldova","Morocco",
+    "Netherlands","New Zealand","Nigeria","Norway","Pakistan","Palestine","Panama","Peru",
+    "Philippines","Poland","Portugal","Romania","Russia","Saudi Arabia","Senegal","Serbia",
+    "Singapore","Slovakia","Slovenia","South Africa","South Korea","Spain","Sri Lanka","Sweden",
+    "Switzerland","Taiwan","Thailand","Turkey","Ukraine","United Arab Emirates",
+    "United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam","Zimbabwe",
+    "Other",
+]
+
+SNOWFLAKE_TOPICS = [
+    "Snowflake Data Cloud",
+    "Cortex AI / LLM functions",
+    "Cortex Analyst / Semantic Views",
+    "Cortex Code (CoCo) — AI-powered IDE",
+    "CoCo Skills & Agents",
+    "CoCo + Data Engineering",
+    "CoCo + Streamlit",
+    "Snowpark (Python / Java / Scala)",
+    "Streamlit in Snowflake",
+    "Native Apps / App Framework",
+    "Iceberg / Open Table Formats",
+    "Data Sharing / Marketplace",
+    "Dynamic Tables / Pipelines",
+    "Data Governance / Horizon",
+    "Snowpipe / Streaming Ingestion",
+    "Snowflake ML / Feature Store",
+    "TruLens / AI Evaluation",
+    "Performance & Cost Optimization",
+    "AI Agents on Snowflake",
+    "Open Source + Snowflake",
+    "Other",
+]
+
+
+
+# ── Top-level navigation ──────────────────────────────────────────────────────
+_tab_param = st.query_params.get("tab", "apply")
+_nav_apply, _nav_content = st.tabs(["📋  Apply for Support", "🎤  Submit Your Talk Content"])
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONTENT SUBMISSION TAB — for accepted speakers to submit their talk details
+# ════════════════════════════════════════════════════════════════════════════
+with _nav_content:
+    if st.session_state.content_submitted:
+        st.markdown("""
+<div class="success-box">
+  <div style="font-size:3.5rem; margin-bottom:20px;">🎤</div>
+  <h2>Content received — thank you!</h2>
+  <p>The Snowflake Community team will review your talk details<br>
+  and be in touch with any questions.</p>
+</div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
+    st.markdown('<p style="color:#718096; font-size:0.95rem; margin-bottom:24px;">Already accepted into Snowflake Community Voices? Submit your talk details here so we can help promote your session and prepare our team.</p>', unsafe_allow_html=True)
+
+    with st.form("content_form", clear_on_submit=False):
+        st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
+        cc1, cc2, cc3 = st.columns(3)
+        with cc1:
+            c_first = st.text_input("First name *")
+        with cc2:
+            c_last  = st.text_input("Last name *")
+        with cc3:
+            c_email = st.text_input("Email *", placeholder="you@example.com")
+
+        st.divider()
+        st.markdown('<p class="section-title">Your Talk</p>', unsafe_allow_html=True)
+
+        c_title = st.text_input("Talk / session title *", placeholder="Building Production AI Agents on Snowflake")
+
+        c_abstract = st.text_area(
+            "Talk abstract *",
+            placeholder="Describe your talk in 150–300 words. What will the audience learn? What problem does it solve?",
+            height=160,
+        )
+
+        st.markdown('<p class="section-hint">Top 3 takeaways for the audience</p>', unsafe_allow_html=True)
+        tk1, tk2, tk3 = st.columns(3)
+        with tk1:
+            c_tk1 = st.text_input("Takeaway 1", placeholder="Audience will learn…")
+        with tk2:
+            c_tk2 = st.text_input("Takeaway 2", placeholder="Audience will be able to…")
+        with tk3:
+            c_tk3 = st.text_input("Takeaway 3", placeholder="Audience will walk away with…")
+
+        ct1, ct2, ct3 = st.columns(3)
+        with ct1:
+            c_level = st.selectbox("Target audience level", ["— select —", "Beginner", "Intermediate", "Advanced", "Mixed"])
+        with ct2:
+            c_demo  = st.selectbox("Demo included?", ["— select —", "Yes — live demo", "Yes — recorded demo", "No demo", "TBD"])
+        with ct3:
+            c_slides = st.selectbox("Slides ready?", ["— select —", "Yes — finalized", "In progress", "Not yet started"])
+
+        c_products = st.multiselect(
+            "Snowflake products featured in your talk",
+            ["Cortex AI / LLM Functions", "Cortex Analyst", "Cortex Search", "Cortex Code (CoCo)",
+             "Snowpark", "Streamlit in Snowflake", "Dynamic Tables", "Snowflake Data Cloud",
+             "Data Sharing / Marketplace", "Iceberg Tables", "Native Apps", "Other"],
+        )
+
+        c_notes = st.text_area("Anything else we should know?", placeholder="Co-speakers, special AV needs, timing constraints, etc.", height=80)
+
+        c_submitted = st.form_submit_button("Submit Talk Content →", type="primary", use_container_width=True)
+
+    if c_submitted:
+        if not all([c_first.strip(), c_last.strip(), c_email.strip(), c_title.strip(), c_abstract.strip()]):
+            st.error("Please fill in all required fields (marked *).")
+        else:
+            content_payload = {
+                "submission_id": str(uuid.uuid4()),
+                "submitted_at":  datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "first_name":    c_first.strip(),
+                "last_name":     c_last.strip(),
+                "email":         c_email.strip(),
+                "talk_title":    c_title.strip(),
+                "abstract":      c_abstract.strip(),
+                "takeaway_1":    c_tk1.strip(),
+                "takeaway_2":    c_tk2.strip(),
+                "takeaway_3":    c_tk3.strip(),
+                "audience_level": c_level if c_level != "— select —" else "",
+                "demo_included": c_demo  if c_demo  != "— select —" else "",
+                "slides_ready":  c_slides if c_slides != "— select —" else "",
+                "snowflake_products": ", ".join(c_products),
+                "notes":         c_notes.strip(),
+            }
+            with st.spinner("Submitting…"):
+                ok = save_content(content_payload)
+            if ok:
+                st.session_state.content_submitted = True
+                st.rerun()
+            else:
+                st.warning("Could not save your content. Please try again.")
+
+# ════════════════════════════════════════════════════════════════════════════
+# APPLICATION TAB — existing form
+# ════════════════════════════════════════════════════════════════════════════
+with _nav_apply:
+
+    # ── Success screen ─────────────────────────────────────────────────────────────
+    if st.session_state.submitted:
+        st.markdown("""
+<div class="success-box">
+  <div style="font-size:3.5rem; margin-bottom:20px;">🦸</div>
+  <h2>You're on our radar!</h2>
+  <p>Thanks for letting us know — the Snowflake Community team<br>
+  will review your submission and be in touch soon.</p>
+</div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
+
+    # ── Form ──────────────────────────────────────────────────────────────────────
+    with st.form("conference_support_form", clear_on_submit=False):
+
+        # ── Section 1: About You ──────────────────────────────────────────────────
+        st.markdown('<span class="step-label">Section 1 of 5</span>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">About You</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Basic contact info so we can follow up with you.</p>', unsafe_allow_html=True)
+
+        a1, a2 = st.columns(2)
+        with a1:
+            first_name = st.text_input("First name", placeholder="Aba", key="first_name")
+            country    = st.selectbox("Country", ["— select —"] + COUNTRIES, key="country")
+            email      = st.text_input("Email address", placeholder="you@example.com", key="email")
+        with a2:
+            last_name = st.text_input("Last name", placeholder="Micah", key="last_name")
+            city      = st.text_input("City", placeholder="San Francisco", key="city")
+
+        # removed fields — kept as empty strings for payload compatibility
+        company = ""
+        job_title = ""
+        linkedin_url = ""
+
+        st.divider()
+
+        # ── Section 2: Community Identity ─────────────────────────────────────────
+        st.markdown('<span class="step-label">Section 2 of 5</span>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Community Identity</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Tell us which Snowflake community program(s) you\'re part of.</p>', unsafe_allow_html=True)
+
+        community_identity = st.multiselect(
+            "I am a... (select all that apply)",
+            ["Snowflake Data Superhero", "Streamlit Creator", "Both"],
+            placeholder="Select your community identity",
+            key="community_identity",
+        )
+
+        years_snowflake = st.select_slider(
+            "Years working with Snowflake",
+            options=["< 6 months", "6–12 months", "1–2 years", "2–4 years", "4+ years"],
+            value="1–2 years",
+            key="years_snowflake",
+        )
+
+        st.divider()
+
+        # ── Section 3: Event or Interest ──────────────────────────────────────────
+        st.markdown('<span class="step-label">Section 3 of 5</span>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Are you heading to an event, or looking to speak?</p>', unsafe_allow_html=True)
+
+        # Defaults for variables before tabs execute
+        talk_title = ""
+        session_type = "— select —"
+        snowflake_topics_selected = []
+        talk_abstract = ""
+        acceptance_status = ""
+        add_event_btn = False
+        remove_event_btn = False
+
+        s3_event, s3_interest = st.tabs(["📅  I have an event and I'm looking for support", "🙋  I don't have an event but I want to speak"])
+
+        with s3_event:
+            st.markdown('<p class="section-title" style="margin-top:16px;">The Event</p>', unsafe_allow_html=True)
+            st.markdown('<p class="section-hint">Tell us about the conference, event, or meetup you\'re planning to attend or speak at.</p>', unsafe_allow_html=True)
+
+            event_entries = []
+            for i in range(st.session_state.num_events):
+                label = f"Event {i + 1}" if st.session_state.num_events > 1 else "Event"
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    ename = st.text_input(f"{label} name", placeholder="PyCon US 2025, local data meetup, etc.", key=f"event_name_{i}")
+                with ec2:
+                    elink = st.text_input(f"{label} link", placeholder="https://us.pycon.org", key=f"event_link_{i}")
+                event_entries.append((ename, elink))
+
+            col_add_ev, col_rem_ev, _ = st.columns([1.3, 1.3, 2.4])
+            with col_add_ev:
+                add_event_btn = st.form_submit_button("＋ Add another event", type="secondary")
+            with col_rem_ev:
+                if st.session_state.num_events > 1:
+                    remove_event_btn = st.form_submit_button("－ Remove event", type="secondary")
+
+            st.divider()
+
+            # ── Section 4 (event path only): Your Talk ───────────────────────────
+            st.markdown('<span class="step-label">Section 4 of 5</span>', unsafe_allow_html=True)
+            st.markdown('<p class="section-title">Your Talk</p>', unsafe_allow_html=True)
+            st.markdown('<p class="section-hint">Tell us what you may be presenting. No worries if the details are still taking shape.</p>', unsafe_allow_html=True)
+
+            talk_title = st.text_input(
+                "Talk / session title",
+                placeholder="Building Production AI Agents on Snowflake",
+                key="talk_title",
+            )
+
+            sr_c1, sr_c2 = st.columns(2)
+            with sr_c1:
+                session_type = st.selectbox(
+                    "Session type",
+                    ["— select —", "Keynote", "Talk (30–45 min)", "Lightning Talk (5–15 min)",
+                     "Workshop / Tutorial", "Panel", "Poster / Demo", "Not yet confirmed", "Other"],
+                    key="session_type",
+                )
+            with sr_c2:
+                snowflake_topics_selected = st.multiselect(
+                    "Snowflake topics you'll cover (or want to speak about)",
+                    SNOWFLAKE_TOPICS,
+                    key="snowflake_topics_selected",
+                )
+
+        with s3_interest:
+            st.markdown('<p class="section-title" style="margin-top:16px;">Interested in speaking but no event lined up yet?</p>', unsafe_allow_html=True)
+            st.markdown('<p class="section-hint">Let us know what kinds of events you\'d be open to — we\'re working with local partners to create opportunities in 14 countries.</p>', unsafe_allow_html=True)
+
+            preferred_event_types = st.multiselect(
+                "Types of events you would be open to speaking at",
+                ["Meetup / Local event", "Regional conference", "Workshop / Tutorial",
+                 "Hackathon", "Online / Virtual event"],
+                key="preferred_event_types_v2",
+            )
+
+            LAUNCH_CITIES = [
+                # Americas
+                "Austin, TX", "Boston, MA", "Chicago, IL", "Los Angeles, CA",
+                "Montreal, Canada", "New York, NY", "San Francisco, CA", "Seattle, WA",
+                "São Paulo, Brazil", "Rio de Janeiro, Brazil", "Toronto, Canada", "Vancouver, Canada",
+                # Europe
+                "Amsterdam, Netherlands", "Berlin, Germany", "Edinburgh, UK",
+                "Frankfurt, Germany", "London, UK", "Manchester, UK", "Milan, Italy",
+                "Munich, Germany", "Prague, Czech Republic", "Rome, Italy", "Zagreb, Croatia",
+                # Asia Pacific
+                "Auckland, New Zealand", "Bangalore, India", "Delhi, India",
+                "Hyderabad, India", "Melbourne, Australia", "Mumbai, India",
+                "Osaka, Japan", "Seoul, South Korea", "Sydney, Australia", "Tokyo, Japan",
+                "Wellington, New Zealand",
+            ]
+            preferred_cities = st.multiselect(
+                "Which cities would you be open to speaking in? (select all that apply)",
+                LAUNCH_CITIES,
+                key="preferred_cities",
+            )
+
+            AVAILABLE_MONTHS = [
+                "August 2026", "September 2026", "October 2026", "November 2026", "December 2026",
+                "January 2027", "February 2027", "March 2027", "April 2027", "May 2027", "June 2027",
+            ]
+            preferred_months = st.multiselect(
+                "Which months work best for you? (select all that apply)",
+                AVAILABLE_MONTHS,
+                key="preferred_months",
+            )
+
+        # ── Compute event payload values (safe defaults if interest tab used) ──────
+        try:
+            conference_name    = " | ".join(e[0] for e in event_entries if e[0].strip())
+            conference_website = " | ".join(e[1] for e in event_entries if e[1].strip())
+        except NameError:
+            conference_name = ""
+            conference_website = ""
+        try:
+            _ = preferred_event_types
+        except NameError:
+            preferred_event_types = []
+        try:
+            _ = preferred_cities
+        except NameError:
+            preferred_cities = []
+        try:
+            _ = preferred_months
+        except NameError:
+            preferred_months = []
+
+        # kept in payload for Sheet compatibility
+        conference_type = conference_start = conference_end = ""
+        conference_city = conference_country = conference_format = ""
+
+        st.divider()
+
+        # ── Section 5: Travel Dates ───────────────────────────────────────────────
+        st.markdown('<span class="step-label">Section 5 of 5</span>', unsafe_allow_html=True)
+        st.markdown('<p class="section-title">Travel Dates</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Help us plan support around your travel schedule. You can add multiple trips or travel dates if needed.</p>', unsafe_allow_html=True)
+
+        add_travel_btn = False
+        remove_travel_btn = False
+        travel_entries = []
+        for j in range(st.session_state.num_travels):
+            t_label = f"Trip / Travel Leg {j + 1}" if st.session_state.num_travels > 1 else "Travel Details"
+            if st.session_state.num_travels > 1:
+                st.markdown(f'<p style="font-weight:600; color:#0E2346; margin-top:12px; margin-bottom:6px;">{t_label}</p>', unsafe_allow_html=True)
+
+            td1, td2 = st.columns(2)
+            with td1:
+                dep_date = st.date_input("Departure date", value=None, help="The date you plan to leave for the event.", key=f"departure_date_{j}")
+            with td2:
+                ret_date = st.date_input("Return date", value=None, help="The date you plan to return home.", key=f"return_date_{j}")
+
+            tf1, tf2 = st.columns(2)
+            with tf1:
+                t_from = st.text_input("Traveling from (city, country)", placeholder="Lagos, Nigeria", key=f"traveling_from_{j}")
+            with tf2:
+                t_to = st.text_input("Traveling to (city, country)", placeholder="San Francisco, United States", key=f"traveling_to_{j}")
+
+            t_mode = st.selectbox(
+                "Preferred mode of travel",
+                ["— select —", "Flight", "Train", "Bus", "Car / rideshare", "No travel needed (local)"],
+                help="How you'd prefer to get there for this trip.",
+                key=f"travel_mode_{j}",
+            )
+
+            travel_entries.append((dep_date, ret_date, t_from, t_to, t_mode))
+
+        col_add_tr, col_rem_tr, _ = st.columns([1.3, 1.3, 2.4])
+        with col_add_tr:
+            add_travel_btn = st.form_submit_button("＋ Add another travel date", type="secondary")
+        with col_rem_tr:
+            if st.session_state.num_travels > 1:
+                remove_travel_btn = st.form_submit_button("－ Remove travel date", type="secondary")
+
+        departure_date_str = " | ".join(str(t[0]) for t in travel_entries if t[0] is not None)
+        return_date_str = " | ".join(str(t[1]) for t in travel_entries if t[1] is not None)
+        traveling_from_str = " | ".join(t[2].strip() for t in travel_entries if t[2].strip())
+        traveling_to_str = " | ".join(t[3].strip() for t in travel_entries if t[3].strip())
+        travel_modes_str = " | ".join(t[4] for t in travel_entries if t[4] != "— select —")
+
+        # safe defaults for removed fields
+        travel_booked = ""
+        estimated_cost = 0
+
+        # safe defaults for removed support fields
+        support_rank_1 = support_rank_2 = support_rank_3 = ""
+
+        st.markdown('<p class="section-title" style="margin-top:16px;">Other Support Needed</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Beyond travel, what else would help you show up and shine? Select all that apply.</p>', unsafe_allow_html=True)
+        support_types = st.multiselect(
+            "Support types",
+            [
+                "Ground transportation (Uber / rideshare / airport transfers)",
+                "Hotel / accommodation",
+                "Snowflake swag to bring or give away",
+                "Swag for yourself (t-shirt, hoodie, etc.)",
+                "Event / conference ticket or pass",
+                "Meals / per diem",
+                "Visa invitation letter",
+                "Slide design or talk review",
+                "Demo environment / Snowflake trial credits",
+                "Social media promotion of your talk",
+                "Photo / video coverage",
+                "Booth or table presence",
+                "None needed",
+            ],
+            key="support_types",
+        )
+        support_details = st.text_area(
+            "Support details (optional)",
+            placeholder="e.g. airport pickup on arrival, ~50 stickers for a meetup, shirt size L, anything not listed above",
+            height=80,
+            key="support_details",
+        )
+
+        additional_notes = st.text_area(
+            "Anything else you'd like us to know?",
+            placeholder="Additional context, timing constraints, co-presenters, past Snowflake Community interactions, etc.",
+            height=100,
+            key="additional_notes",
+        )
+
+        st.markdown("")
+
+        with st.container(border=True):
+            st.caption(
+                "By submitting this form you agree to be contacted by the Snowflake Community team "
+                "regarding event support. Your information will only be used to evaluate and manage this program."
+            )
+            submitted = st.form_submit_button(
+                "Submit — Let us know you're going →",
+                type="primary",
+                use_container_width=True,
+            )
+
+        # ── Handlers ──────────────────────────────────────────────────────────────
+        if add_event_btn:
+            st.session_state.num_events += 1
+            st.rerun()
+
+        if remove_event_btn and st.session_state.num_events > 1:
+            st.session_state.pop(f"event_name_{st.session_state.num_events - 1}", None)
+            st.session_state.pop(f"event_link_{st.session_state.num_events - 1}", None)
+            st.session_state.num_events -= 1
+            st.rerun()
+
+        if add_travel_btn:
+            st.session_state.num_travels += 1
+            st.rerun()
+
+        if remove_travel_btn and st.session_state.num_travels > 1:
+            st.session_state.pop(f"departure_date_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"return_date_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"traveling_from_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"traveling_to_{st.session_state.num_travels - 1}", None)
+            st.session_state.pop(f"travel_mode_{st.session_state.num_travels - 1}", None)
+            st.session_state.num_travels -= 1
+            st.rerun()
+
+        if submitted:
+            payload = {
+                "submission_id": str(uuid.uuid4()),
+                "submitted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "first_name": first_name.strip(),
+                "last_name": last_name.strip(),
+                "email": email.strip(),
+                "country": country if country != "— select —" else "",
+                "city": city.strip(),
+                "community_identity": ", ".join(community_identity),
+                "years_snowflake": years_snowflake,
+                "conference_name": conference_name.strip(),
+                "conference_website": conference_website.strip(),
+                "talk_title": talk_title.strip(),
+                "session_type": session_type if session_type != "— select —" else "",
+                "snowflake_topics": snowflake_topics_selected,
+                "departure_date": departure_date_str,
+                "return_date": return_date_str,
+                "travel_booked": "",
+                "estimated_cost": 0,
+                "traveling_from": traveling_from_str,
+                "traveling_to": traveling_to_str,
+                "travel_modes": travel_modes_str,
+                "support_rank_1": "",
+                "support_rank_2": "",
+                "support_rank_3": "",
+                "preferred_event_types": ", ".join(preferred_event_types),
+                "preferred_cities": ", ".join(preferred_cities),
+                "preferred_months": ", ".join(preferred_months),
+                "additional_notes": additional_notes.strip(),
+                "support_types": support_types,
+                "support_details": support_details.strip(),
+            }
+
+            with st.spinner("Submitting…"):
+                ok = save_submission(payload)
+                # Also write to Speaker Availability if they filled in cities or months
+                if preferred_cities or preferred_months or preferred_event_types:
+                    save_interest({
+                        "submission_id": payload["submission_id"],
+                        "submitted_at": payload["submitted_at"],
+                        "first_name": payload["first_name"],
+                        "last_name": payload["last_name"],
+                        "email": payload["email"],
+                        "country": payload["country"],
+                        "city": payload["city"],
+                        "community_identity": payload["community_identity"],
+                        "topics": snowflake_topics_selected,
+                        "event_types": preferred_event_types,
+                        "preferred_cities": preferred_cities,
+                        "preferred_months": preferred_months,
+                        "additional_notes": payload["additional_notes"],
+                    })
+
+            if ok:
+                st.session_state.submitted = True
+                st.rerun()
+            else:
+                st.warning(
+                    "Could not save your submission. Please try again or contact the program team directly."
+                )
