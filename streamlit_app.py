@@ -143,6 +143,8 @@ def save_submission(data: dict) -> bool:
                 # U–Y are internal tracking columns (swag + bookings) filled by the team
                 "", "", "", "", "",
                 data.get("travel_modes", ""),
+                ", ".join(data.get("support_types", [])),
+                data.get("support_details", ""),
             ]
             append_resp = requests.post(
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}"
@@ -193,6 +195,7 @@ def save_submission(data: dict) -> bool:
         "", "## Talk & Support",
         f"- **Talk Title:** {data.get('talk_title', '')}",
         f"- **Support Requested:** {', '.join(data.get('support_types', []))}",
+        f"- **Support Details:** {data.get('support_details', '')}",
         f"- **Est. Travel Cost (USD):** {data.get('estimated_cost', 0)}",
         f"- **Preferred Travel Mode:** {data.get('travel_modes', '')}",
     ]
@@ -726,7 +729,34 @@ with _nav_apply:
 
         # safe defaults for removed support fields
         support_rank_1 = support_rank_2 = support_rank_3 = ""
-        support_types = []
+
+        st.markdown('<p class="section-title" style="margin-top:16px;">Other Support Needed</p>', unsafe_allow_html=True)
+        st.markdown('<p class="section-hint">Beyond travel, what else would help you show up and shine? Select all that apply.</p>', unsafe_allow_html=True)
+        support_types = st.multiselect(
+            "Support types",
+            [
+                "Ground transportation (Uber / rideshare / airport transfers)",
+                "Hotel / accommodation",
+                "Snowflake swag to bring or give away",
+                "Swag for yourself (t-shirt, hoodie, etc.)",
+                "Event / conference ticket or pass",
+                "Meals / per diem",
+                "Visa invitation letter",
+                "Slide design or talk review",
+                "Demo environment / Snowflake trial credits",
+                "Social media promotion of your talk",
+                "Photo / video coverage",
+                "Booth or table presence",
+                "None needed",
+            ],
+            key="support_types",
+        )
+        support_details = st.text_area(
+            "Support details (optional)",
+            placeholder="e.g. airport pickup on arrival, ~50 stickers for a meetup, shirt size L, anything not listed above",
+            height=80,
+            key="support_details",
+        )
 
         additional_notes = st.text_area(
             "Anything else you'd like us to know?",
@@ -802,6 +832,8 @@ with _nav_apply:
                 "preferred_cities": ", ".join(preferred_cities),
                 "preferred_months": ", ".join(preferred_months),
                 "additional_notes": additional_notes.strip(),
+                "support_types": support_types,
+                "support_details": support_details.strip(),
             }
 
             with st.spinner("Submitting…"):
